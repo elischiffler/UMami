@@ -1018,7 +1018,7 @@ export async function fetchDineOnCampusSource(url) {
    const browser = await chromium.launch({
       headless: true,
    });
-   const untrack = trackBrowser(browser);
+   const untrack = await trackBrowser(browser);
 
    try {
       const context = await browser.newContext({

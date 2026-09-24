@@ -115,6 +115,10 @@ const weeklySchedule = {
       },
    ],
 };
+let nextLocationDelayMs = 0;
+let delayedLocationRequests = 0;
+let nextRestaurantWriteDelayMs = 0;
+let delayedRestaurantWrites = 0;
 
 function send(response, status, data, headers = {}) {
    response.writeHead(status, {
@@ -173,6 +177,8 @@ const server = http.createServer(
             return send(response, 200, { ok: true });
          if (url.pathname === "/fixture/status") {
             return send(response, 200, {
+               delayedLocationRequests,
+               delayedRestaurantWrites,
                restaurantNames: tables.restaurants.map(
                   (row) => row.name,
                ),
@@ -224,8 +230,61 @@ const server = http.createServer(
                   : { error: "Invalid fixture token" },
             );
          }
-         if (url.pathname.endsWith("/locations-public"))
+         if (
+            url.pathname ===
+               "/fixture/delay-next-location" &&
+            request.method === "POST"
+         ) {
+            const input = await readJson(request);
+            if (
+               !Number.isInteger(input?.ms) ||
+               input.ms < 1 ||
+               input.ms > 20000
+            ) {
+               return send(response, 400, {
+                  error: "Delay must be 1-20000 ms",
+               });
+            }
+            nextLocationDelayMs = input.ms;
+            return send(response, 200, {
+               nextLocationDelayMs,
+            });
+         }
+         if (
+            url.pathname ===
+               "/fixture/delay-next-restaurant-write" &&
+            request.method === "POST"
+         ) {
+            const input = await readJson(request);
+            if (
+               !Number.isInteger(input?.ms) ||
+               input.ms < 1 ||
+               input.ms > 20000
+            ) {
+               return send(response, 400, {
+                  error: "Delay must be 1-20000 ms",
+               });
+            }
+            nextRestaurantWriteDelayMs = input.ms;
+            return send(response, 200, {
+               nextRestaurantWriteDelayMs,
+            });
+         }
+         if (url.pathname.endsWith("/locations-public")) {
+            if (nextLocationDelayMs) {
+               const delay = nextLocationDelayMs;
+               nextLocationDelayMs = 0;
+               delayedLocationRequests += 1;
+               try {
+                  await new Promise((resolve) =>
+                     setTimeout(resolve, delay),
+                  );
+               } finally {
+                  delayedLocationRequests -= 1;
+               }
+            }
             return send(response, 200, locations);
+         }
          if (url.pathname === "/locations/weekly_schedule")
             return send(response, 200, weeklySchedule);
          if (
@@ -325,6 +384,21 @@ const server = http.createServer(
          }
          if (request.method === "POST") {
             const input = await readJson(request);
+            if (
+               tableName === "restaurants" &&
+               nextRestaurantWriteDelayMs
+            ) {
+               const delay = nextRestaurantWriteDelayMs;
+               nextRestaurantWriteDelayMs = 0;
+               delayedRestaurantWrites += 1;
+               try {
+                  await new Promise((resolve) =>
+                     setTimeout(resolve, delay),
+                  );
+               } finally {
+                  delayedRestaurantWrites -= 1;
+               }
+            }
             const incoming = Array.isArray(input)
                ? input
                : [input];

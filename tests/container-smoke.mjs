@@ -24,6 +24,33 @@ function compose(args, expected = 0) {
    return result.stdout;
 }
 
+function docker(args) {
+   const result = spawnSync("docker", args, {
+      encoding: "utf8",
+      timeout: 30_000,
+   });
+   if (result.error) throw result.error;
+   assert.equal(
+      result.status,
+      0,
+      `docker ${args.join(" ")} failed: ${result.stderr}`,
+   );
+   return result.stdout.trim();
+}
+
+function fixtureStatus() {
+   return JSON.parse(
+      compose([
+         "exec",
+         "-T",
+         "fixture-supabase",
+         "node",
+         "-e",
+         "fetch('http://127.0.0.1:54321/fixture/status').then(r=>r.text()).then(console.log)",
+      ]).trim(),
+   );
+}
+
 async function request(url, options = {}) {
    return fetch(url, {
       signal: AbortSignal.timeout(timeout),
@@ -132,15 +159,7 @@ compose([...oneShot, "--once=restaurants"]);
 compose([...oneShot, "--once=restaurants"]);
 compose([...oneShot, "--once=menus"]);
 compose([...oneShot, "--once=menus"]);
-const statusText = compose([
-   "exec",
-   "-T",
-   "fixture-supabase",
-   "node",
-   "-e",
-   "fetch('http://127.0.0.1:54321/fixture/status').then(r=>r.text()).then(console.log)",
-]);
-const fixture = JSON.parse(statusText.trim());
+const fixture = fixtureStatus();
 assert.equal(fixture.restaurantCount, 1);
 assert.equal(fixture.menuItems.length, 1);
 assert.equal(fixture.menuItems[0].name, "Margherita Pizza");
@@ -193,4 +212,163 @@ const recovered = JSON.parse(
 );
 assert.equal(recovered.status, 200);
 assert.equal(recovered.body.lastRun.status, "succeeded");
+
+async function interruptScrape({
+   delayPath,
+   activityField,
+   browserCount,
+}) {
+   compose([
+      "exec",
+      "-T",
+      "fixture-supabase",
+      "node",
+      "-e",
+      `fetch('http://127.0.0.1:54321/fixture/${delayPath}',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ms:15000})}).then(r=>{if(!r.ok)process.exit(1)})`,
+   ]);
+   const probeName = `umami-interrupt-${activityField}-${process.pid}`;
+   const probeId = compose([
+      "run",
+      "--detach",
+      "--name",
+      probeName,
+      "--no-deps",
+      "worker",
+      "node",
+      "worker.js",
+      "--once=restaurants",
+   ]).trim();
+   try {
+      const deadline = Date.now() + 10_000;
+      while (fixtureStatus()[activityField] !== 1) {
+         assert.ok(
+            Date.now() < deadline,
+            `${activityField} did not start`,
+         );
+         await new Promise((resolve) =>
+            setTimeout(resolve, 200),
+         );
+      }
+      docker(["stop", "--timeout", "10", probeId]);
+      const exitCode = Number(
+         docker([
+            "inspect",
+            "--format",
+            "{{.State.ExitCode}}",
+            probeId,
+         ]),
+      );
+      assert.equal(
+         exitCode,
+         143,
+         "interrupted one-shot should exit as SIGTERM",
+      );
+      assert.match(
+         docker(["logs", probeId]),
+         new RegExp(
+            `closed ${browserCount} browser\\(s\\)`,
+         ),
+      );
+      assert.equal(fixtureStatus().restaurantCount, 1);
+   } finally {
+      docker(["rm", "--force", probeId]);
+   }
+   // The fixture may complete an already accepted write after client shutdown.
+   const settleDeadline = Date.now() + 20_000;
+   while (fixtureStatus()[activityField] !== 0) {
+      assert.ok(
+         Date.now() < settleDeadline,
+         `${activityField} did not settle`,
+      );
+      await new Promise((resolve) =>
+         setTimeout(resolve, 200),
+      );
+   }
+   assert.equal(fixtureStatus().restaurantCount, 1);
+   compose([...oneShot, "--once=restaurants"]);
+   const afterInterrupt = fixtureStatus();
+   assert.equal(afterInterrupt.restaurantCount, 1);
+   assert.equal(afterInterrupt.menuItems.length, 1);
+}
+
+await interruptScrape({
+   delayPath: "delay-next-location",
+   activityField: "delayedLocationRequests",
+   browserCount: 1,
+});
+await interruptScrape({
+   delayPath: "delay-next-restaurant-write",
+   activityField: "delayedRestaurantWrites",
+   browserCount: 0,
+});
+
+compose([
+   "exec",
+   "--detach",
+   "worker",
+   "node",
+   "-e",
+   "fetch('http://127.0.0.1:3004/fixture/hang',{method:'POST'}).catch(()=>{})",
+]);
+const activeDeadline = Date.now() + 10_000;
+while (true) {
+   const state = JSON.parse(
+      compose([
+         "exec",
+         "-T",
+         "worker",
+         "node",
+         "-e",
+         "fetch('http://127.0.0.1:3004/status').then(r=>r.text()).then(console.log)",
+      ]).trim(),
+   );
+   if (state.runningJob === "fixture-probe") break;
+   assert.ok(
+      Date.now() < activeDeadline,
+      "daemon job did not start",
+   );
+   await new Promise((resolve) => setTimeout(resolve, 200));
+}
+const daemonId = compose([
+   "ps",
+   "--quiet",
+   "worker",
+]).trim();
+const stopStarted = Date.now();
+compose(["stop", "worker"]);
+assert.ok(
+   Date.now() - stopStarted < 10_000,
+   "active worker exceeded stop deadline",
+);
+assert.equal(
+   Number(
+      docker([
+         "inspect",
+         "--format",
+         "{{.State.ExitCode}}",
+         daemonId,
+      ]),
+   ),
+   143,
+);
+compose([
+   "up",
+   "--detach",
+   "--wait",
+   "--wait-timeout",
+   "60",
+   "worker",
+]);
+const restarted = JSON.parse(
+   compose([
+      "exec",
+      "-T",
+      "worker",
+      "node",
+      "-e",
+      "fetch('http://127.0.0.1:3004/health').then(async r=>console.log(JSON.stringify({status:r.status,body:await r.json()})))",
+   ]).trim(),
+);
+assert.equal(restarted.status, 200);
+assert.equal(restarted.body.schedulerActive, true);
 console.log("UMami isolated container smoke passed.");
