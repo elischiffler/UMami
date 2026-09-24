@@ -24,6 +24,12 @@ jest.mock("../lib/supabase", () => ({
    supabase: {
       auth: {
          signOut: jest.fn(),
+         getSession: jest.fn().mockResolvedValue({
+            data: {
+               session: { access_token: "fixture-token" },
+            },
+            error: null,
+         }),
       },
    },
 }));

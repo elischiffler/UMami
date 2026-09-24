@@ -11,6 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { API_BASE_URL } from "../lib/api";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
 import "./Header.css";
 
 // Header component that contains the logo, search, notifications, and profile dropdown
@@ -92,7 +93,7 @@ function Header() {
 
       // sync with database
       try {
-         await fetch(
+         await authenticatedFetch(
             `${API_BASE_URL}/api/notifications/${notification.id}/read`,
             { method: "PATCH" },
          );
@@ -112,9 +113,10 @@ function Header() {
       );
 
       // Background Sync
-      const userId = "b677be85-81db-4245-91ca-acb713bd5564";
+      const userId = user?.id;
+      if (!userId) return;
       try {
-         await fetch(
+         await authenticatedFetch(
             `${API_BASE_URL}/api/notifications/${userId}/read-all`,
             {
                method: "PATCH",
@@ -132,9 +134,10 @@ function Header() {
       setVisibleCount(4);
 
       // Background Sync
-      const userId = "b677be85-81db-4245-91ca-acb713bd5564";
+      const userId = user?.id;
+      if (!userId) return;
       try {
-         await fetch(
+         await authenticatedFetch(
             `${API_BASE_URL}/api/notifications/${userId}/delete-all`,
             { method: "DELETE" },
          );
@@ -160,7 +163,7 @@ function Header() {
 
       // sync request with data base
       try {
-         await fetch(
+         await authenticatedFetch(
             `${API_BASE_URL}/api/notifications/${notificationId}`,
             {
                method: "DELETE",
@@ -204,7 +207,7 @@ function Header() {
          }
 
          try {
-            const response = await fetch(
+            const response = await authenticatedFetch(
                `${API_BASE_URL}/api/notifications/${userId}`,
             );
             if (response.ok) {
@@ -384,7 +387,7 @@ function Header() {
       setFollowedSet((prev) => new Set(prev).add(personId));
 
       try {
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/users/follows/sync`,
             {
                method: "POST",
@@ -433,7 +436,7 @@ function Header() {
 
       // Sync with backend
       try {
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/users/follows/sync`,
             {
                method: "POST",

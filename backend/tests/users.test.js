@@ -7,7 +7,7 @@ import {
    beforeAll,
    afterAll,
 } from "@jest/globals";
-import request from "supertest";
+import request from "./authenticatedRequest.js";
 import app from "../index.js";
 import { z } from "zod";
 import { supabase } from "../config/supabaseClient.js";
@@ -403,7 +403,7 @@ describe("User Endpoints", () => {
          "/api/users/550e8400-e29b-41d4-a716-446655440009",
       );
 
-      expect(res.statusCode).toBe(400); // User.parse(null) triggers Zod error
+      expect(res.statusCode).toBe(404);
    });
 
    it("GET /api/users/:id should return 400 for invalid UUID", async () => {

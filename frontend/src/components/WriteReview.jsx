@@ -6,6 +6,7 @@ import uploadIcon from "../assets/upload-icon.svg";
 import PRESET_TAGS from "../assets/tags.json";
 import { uploadReviewPhoto } from "../lib/uploadPhoto";
 import { API_BASE_URL } from "../lib/api";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
 
 function WriteReview({
    onClose,
@@ -99,7 +100,7 @@ function WriteReview({
             });
          }
 
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/reviews`,
             {
                method: "POST",

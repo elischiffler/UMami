@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
-const frontend = "http://127.0.0.1:8083";
-const api = "http://127.0.0.1:3003";
+const frontend = `http://127.0.0.1:${process.env.UMAMI_FRONTEND_PORT || 8083}`;
+const api = `http://127.0.0.1:${process.env.UMAMI_API_PORT || 3003}`;
 const timeout = 10_000;
 
 function compose(args, expected = 0) {

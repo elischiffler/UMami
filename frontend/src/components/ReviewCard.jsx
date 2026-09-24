@@ -7,6 +7,7 @@ import {
    Trash,
 } from "@phosphor-icons/react";
 import { API_BASE_URL } from "../lib/api";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
 import "./ReviewCard.css";
 import "./PhotoOverlay.css";
 
@@ -200,10 +201,7 @@ function ReviewCard({
       setHasVotedHelpful(!hasVotedHelpful);
 
       try {
-         // You'll want to replace this dummy ID with your actual logged-in user ID later
-         const CURRENT_USER_ID =
-            "b677be85-81db-4245-91ca-acb713bd5564";
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/reviews/${review.id}/helpful`,
             {
                method: "POST",
@@ -211,7 +209,7 @@ function ReviewCard({
                   "Content-Type": "application/json",
                },
                body: JSON.stringify({
-                  user_id: CURRENT_USER_ID,
+                  user_id: currentUserId,
                }),
             },
          );

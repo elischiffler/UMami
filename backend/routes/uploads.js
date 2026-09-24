@@ -1,6 +1,10 @@
 import express from "express";
 import multer from "multer";
 import { supabase } from "../config/supabaseClient.js";
+import {
+   requireAuth,
+   requireOwner,
+} from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -10,6 +14,7 @@ const AVATAR_BUCKET = "profile-photos";
 // POST /api/uploads/review-photo
 router.post(
    "/review-photo",
+   requireAuth,
    upload.single("file"),
    async (req, res) => {
       try {
@@ -54,9 +59,13 @@ router.post(
 // Uses user_id as filename so uploading always overwrites the old photo
 router.post(
    "/profile-photo",
+   requireAuth,
    upload.single("file"),
    async (req, res) => {
       try {
+         if (!requireOwner(req, res, req.body?.user_id)) {
+            return;
+         }
          if (!req.file) {
             return res
                .status(400)
@@ -64,7 +73,7 @@ router.post(
          }
 
          const ext = req.file.originalname.split(".").pop();
-         const userId = req.body.user_id || `${Date.now()}`;
+         const userId = req.authUser.id;
          const fileName = `avatars/${userId}.${ext}`;
 
          // upsert: true overwrites the existing file for this user
@@ -104,8 +113,12 @@ router.post(
 // Deletes the user's profile photo from storage and clears avatar_url in DB
 router.delete(
    "/profile-photo/:userId",
+   requireAuth,
    async (req, res) => {
       const { userId } = req.params;
+      if (!requireOwner(req, res, userId)) {
+         return;
+      }
 
       try {
          // Try to delete all common image extensions for this user
@@ -117,26 +130,37 @@ router.delete(
             "gif",
          ];
          for (const ext of extensions) {
-            await supabase.storage
-               .from(AVATAR_BUCKET)
-               .remove([`avatars/${userId}.${ext}`]);
+            const { error: removeError } =
+               await supabase.storage
+                  .from(AVATAR_BUCKET)
+                  .remove([`avatars/${userId}.${ext}`]);
+            if (removeError) {
+               throw removeError;
+            }
          }
 
          // Clear avatar_url in the database and revert to ui-avatars.com
-         const { data: userData } = await supabase
-            .from("users")
-            .select("name")
-            .eq("id", userId)
-            .single();
+         const { data: userData, error: userError } =
+            await supabase
+               .from("users")
+               .select("name")
+               .eq("id", userId)
+               .single();
+         if (userError) {
+            throw userError;
+         }
 
          const defaultAvatar = userData?.name
             ? `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}`
             : "";
 
-         await supabase
+         const { error: updateError } = await supabase
             .from("users")
             .update({ avatar_url: defaultAvatar })
             .eq("id", userId);
+         if (updateError) {
+            throw updateError;
+         }
 
          return res.status(200).json({
             message: "Profile photo removed",

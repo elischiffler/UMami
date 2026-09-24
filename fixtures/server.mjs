@@ -1,4 +1,5 @@
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 
 const tables = {
    restaurants: [
@@ -45,6 +46,9 @@ const tables = {
    ],
    bookmarks: [],
    reviews: [],
+   review_helpful_votes: [],
+   follows: [],
+   notifications: [],
    users: [
       {
          id: "11111111-1111-4111-8111-111111111111",
@@ -416,13 +420,22 @@ const server = http.createServer(
                   return Object.assign(existing, item);
                const row = {
                   id:
-                     Math.max(
-                        0,
-                        ...rows.map(
-                           (value) => Number(value.id) || 0,
-                        ),
-                     ) + 1,
+                     tableName === "notifications"
+                        ? randomUUID()
+                        : Math.max(
+                             0,
+                             ...rows.map(
+                                (value) =>
+                                   Number(value.id) || 0,
+                             ),
+                          ) + 1,
                   ...item,
+                  ...(tableName === "notifications"
+                     ? {
+                          created_at:
+                             new Date().toISOString(),
+                       }
+                     : {}),
                };
                rows.push(row);
                return row;

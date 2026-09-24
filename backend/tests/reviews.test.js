@@ -5,7 +5,7 @@ import {
    jest,
    beforeEach,
 } from "@jest/globals";
-import request from "supertest";
+import request from "./authenticatedRequest.js";
 import app from "../index.js";
 import { supabase } from "../config/supabaseClient.js";
 
@@ -102,9 +102,12 @@ describe("Review Endpoints", () => {
          }
       });
 
-      const res = await request(app).get(
-         "/api/reviews?current_user_id=user123",
-      );
+      const res = await request(app)
+         .get("/api/reviews?current_user_id=someone-else")
+         .set(
+            "Authorization",
+            "Bearer user123~test@calpoly.edu",
+         );
 
       expect(res.statusCode).toBe(200);
       expect(res.body.length).toBe(1);
@@ -380,13 +383,36 @@ describe("Review Endpoints", () => {
       expect(res.body.error).toBe("Internal Server Error");
    });
 
-   it("POST /api/reviews/:id/helpful should return 400 if user_id is missing", async () => {
+   it("POST /api/reviews/:id/helpful uses the verified user when body user_id is missing", async () => {
+      const mockQuery = {
+         select: jest.fn().mockReturnThis(),
+         eq: jest.fn().mockReturnThis(),
+         insert: jest.fn().mockReturnThis(),
+         maybeSingle: jest
+            .fn()
+            .mockResolvedValue({ data: null, error: null }),
+         single: jest.fn().mockResolvedValue({
+            data: { id: 1 },
+            error: null,
+         }),
+         then: jest
+            .fn()
+            .mockImplementation((resolve) =>
+               resolve({ error: null }),
+            ),
+      };
+      supabase.from.mockReturnValue(mockQuery);
       const res = await request(app)
          .post("/api/reviews/1/helpful")
          .send({});
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe("user_id is required");
+      expect(res.statusCode).toBe(200);
+      expect(mockQuery.insert).toHaveBeenCalledWith([
+         {
+            review_id: "1",
+            user_id: "b677be85-81db-4245-91ca-acb713bd5564",
+         },
+      ]);
    });
 
    it("POST /api/reviews/:id/helpful should handle DB errors", async () => {
@@ -604,13 +630,34 @@ describe("Review Endpoints", () => {
       expect(mockQuery.delete).toHaveBeenCalled();
    });
 
-   it("DELETE /api/reviews/:id should return 400 if user_id is missing", async () => {
+   it("DELETE /api/reviews/:id uses the verified user when body user_id is missing", async () => {
+      const mockQuery = {
+         select: jest.fn().mockReturnThis(),
+         eq: jest.fn().mockReturnThis(),
+         maybeSingle: jest.fn().mockResolvedValue({
+            data: {
+               user_id:
+                  "b677be85-81db-4245-91ca-acb713bd5564",
+            },
+            error: null,
+         }),
+         delete: jest.fn().mockReturnThis(),
+         then: jest
+            .fn()
+            .mockImplementation((resolve) =>
+               resolve({ error: null }),
+            ),
+      };
+      supabase.from.mockReturnValue(mockQuery);
       const res = await request(app)
          .delete("/api/reviews/1")
          .send({});
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe("user_id is required");
+      expect(res.statusCode).toBe(200);
+      expect(mockQuery.eq).toHaveBeenCalledWith(
+         "user_id",
+         "b677be85-81db-4245-91ca-acb713bd5564",
+      );
    });
 
    it("DELETE /api/reviews/:id should return 404 if review does not exist", async () => {
@@ -650,9 +697,7 @@ describe("Review Endpoints", () => {
          .send({ user_id: "user123" });
 
       expect(res.statusCode).toBe(403);
-      expect(res.body.error).toBe(
-         "Unauthorized to delete this review",
-      );
+      expect(res.body.error).toBe("Forbidden");
    });
 
    it("DELETE /api/reviews/:id should handle DB errors on fetch", async () => {
@@ -713,9 +758,12 @@ describe("Review Endpoints", () => {
             error: null,
          }),
          delete: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
-               error: {}, // No message property
-            }),
+            eq: jest.fn().mockReturnThis(),
+            then: jest
+               .fn()
+               .mockImplementation((resolve) =>
+                  resolve({ error: {} }),
+               ),
          }),
       };
 

@@ -5,7 +5,7 @@ import {
    jest,
    beforeEach,
 } from "@jest/globals";
-import request from "supertest";
+import request from "./authenticatedRequest.js";
 import app from "../index.js";
 import { supabase } from "../config/supabaseClient.js";
 

@@ -37,7 +37,19 @@ jest.mock("../lib/supabase", () => {
       },
    };
    return {
-      supabase: { from: () => mockChain },
+      supabase: {
+         from: () => mockChain,
+         auth: {
+            getSession: jest.fn().mockResolvedValue({
+               data: {
+                  session: {
+                     access_token: "fixture-token",
+                  },
+               },
+               error: null,
+            }),
+         },
+      },
    };
 });
 
@@ -370,6 +382,87 @@ describe("User Profile Page", () => {
       );
       bookmarkButtons.forEach((button) =>
          expect(button).toHaveClass("bookmarked"),
+      );
+   });
+
+   test("persists a bookmark when clicked, without waiting for page unload", async () => {
+      global.fetch.mockClear();
+      const user = userEvent.setup();
+      render(
+         <UserPage
+            user={testUser}
+            restaurants={[
+               { ...testRestaurants[0], id: 101 },
+            ]}
+         />,
+      );
+      await user.click(
+         screen.getByRole("button", {
+            name: /Remove bookmark for Shake Smart/i,
+         }),
+      );
+      await waitFor(() => {
+         expect(global.fetch).toHaveBeenCalledWith(
+            "http://localhost:4000/api/restaurants/bookmarks/sync",
+            expect.objectContaining({
+               headers: expect.objectContaining({
+                  Authorization: "Bearer fixture-token",
+               }),
+               body: JSON.stringify({
+                  user_id: "123",
+                  added: [],
+                  removed: [101],
+               }),
+            }),
+         );
+      });
+   });
+
+   test("persists a follow on click and blocks a second click while pending", async () => {
+      let resolveFetch;
+      global.fetch = jest.fn(
+         () =>
+            new Promise((resolve) => {
+               resolveFetch = resolve;
+            }),
+      );
+      const user = userEvent.setup();
+      const followedId =
+         "22222222-2222-4222-8222-222222222222";
+      render(
+         <UserPage
+            user={testUser}
+            followedUsers={[
+               { ...testFollowedUsers[0], id: followedId },
+            ]}
+         />,
+      );
+      const button = screen.getByRole("button", {
+         name: "Following",
+      });
+      await user.click(button);
+      await waitFor(() =>
+         expect(global.fetch).toHaveBeenCalledTimes(1),
+      );
+      expect(button).toBeDisabled();
+      await user.click(button);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledWith(
+         "http://localhost:4000/api/users/follows/sync",
+         expect.objectContaining({
+            headers: expect.objectContaining({
+               Authorization: "Bearer fixture-token",
+            }),
+            body: JSON.stringify({
+               follower_id: "123",
+               added: [],
+               removed: [followedId],
+            }),
+         }),
+      );
+      resolveFetch({ ok: true });
+      await waitFor(() =>
+         expect(button).not.toBeDisabled(),
       );
    });
 

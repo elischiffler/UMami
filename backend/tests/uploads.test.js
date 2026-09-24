@@ -7,10 +7,11 @@ import {
    beforeAll,
    afterAll,
 } from "@jest/globals";
-import request from "supertest";
+import request from "./authenticatedRequest.js";
 import express from "express";
 import uploadsRouter from "../routes/uploads.js";
 import { supabase } from "../config/supabaseClient.js";
+import { optionalAuth } from "../middleware/auth.js";
 
 // Mock the supabase client
 jest.mock("../config/supabaseClient.js");
@@ -18,7 +19,7 @@ jest.mock("../config/supabaseClient.js");
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/uploads", uploadsRouter);
+app.use("/api/uploads", optionalAuth, uploadsRouter);
 
 describe("Uploads Endpoints", () => {
    let consoleErrorSpy;

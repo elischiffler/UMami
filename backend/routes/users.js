@@ -2,6 +2,10 @@ import express from "express";
 import { z } from "zod";
 import { supabase } from "../config/supabaseClient.js";
 import { User, Follow } from "../models/userModel.js";
+import {
+   requireAuth,
+   requireOwner,
+} from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -24,6 +28,12 @@ function normalizeUser(user) {
       avatar_url: user.avatar_url ?? null,
       is_verified: user.is_verified ?? null,
    };
+}
+
+function publicUser(user) {
+   const { id, created_at, name, avatar_url, is_verified } =
+      normalizeUser(user);
+   return { id, created_at, name, avatar_url, is_verified };
 }
 
 /**
@@ -72,7 +82,9 @@ router.get("/", async (req, res) => {
 
       let query = supabase
          .from("users")
-         .select("*")
+         .select(
+            "id,created_at,name,avatar_url,is_verified",
+         )
          .order("created_at", { ascending: false });
 
       if (search) {
@@ -86,9 +98,7 @@ router.get("/", async (req, res) => {
       }
 
       // Normalize every user row before returning.
-      const normalizedUsers = (data || []).map(
-         normalizeUser,
-      );
+      const normalizedUsers = (data || []).map(publicUser);
 
       return res.status(200).json(normalizedUsers);
    } catch (error) {
@@ -104,13 +114,35 @@ router.get("/", async (req, res) => {
 // POST /api/users
 // Create a new user profile row
 // ===============================
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
    try {
-      // Insert the raw request body into the users table.
-      // If you want, this can be tightened later with a create-user schema.
+      if (!requireOwner(req, res, req.body.id)) {
+         return;
+      }
+      if (!req.authUser.email) {
+         return res
+            .status(400)
+            .json({ error: "Verified email required" });
+      }
+      const email = req.authUser.email;
+      const name =
+         req.body.name ??
+         req.authUser.user_metadata?.name ??
+         email.split("@")[0];
+      const is_verified =
+         Boolean(req.authUser.email_confirmed_at) &&
+         /@calpoly\.edu$/i.test(email);
       const { data, error } = await supabase
          .from("users")
-         .insert([req.body])
+         .insert([
+            {
+               id: req.authUser.id,
+               email,
+               name,
+               avatar_url: req.body.avatar_url ?? null,
+               is_verified,
+            },
+         ])
          .select()
          .single();
 
@@ -142,7 +174,11 @@ router.get("/:id", async (req, res) => {
 
       const { data, error } = await supabase
          .from("users")
-         .select("*")
+         .select(
+            req.authUser?.id === id
+               ? "id,email,created_at,name,avatar_url,is_verified"
+               : "id,created_at,name,avatar_url,is_verified",
+         )
          .eq("id", id)
          .single();
 
@@ -157,12 +193,17 @@ router.get("/:id", async (req, res) => {
          throw error;
       }
 
-      // Normalize DB row before validating with Zod.
-      const normalizedUser = normalizeUser(data);
+      if (!data) {
+         return res
+            .status(404)
+            .json({ error: "User not found" });
+      }
 
-      // IMPORTANT:
-      // if validation fails, this will now clearly show in backend logs.
-      const validatedData = User.parse(normalizedUser);
+      // Normalize DB row before validating with Zod.
+      const validatedData =
+         req.authUser?.id === id
+            ? User.parse(normalizeUser(data))
+            : publicUser(data);
 
       return res.status(200).json(validatedData);
    } catch (error) {
@@ -191,9 +232,12 @@ router.get("/:id", async (req, res) => {
 // PATCH /api/users/:id
 // Update a user's avatar_url or name
 // ===============================
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requireAuth, async (req, res) => {
    try {
       const { id } = userIdParamsSchema.parse(req.params);
+      if (!requireOwner(req, res, id)) {
+         return;
+      }
 
       const allowedFields = ["avatar_url", "name"];
       const updates = {};
@@ -279,7 +323,9 @@ router.get("/:id/follows", async (req, res) => {
       const { data: followingUsers, error: usersError } =
          await supabase
             .from("users")
-            .select("*")
+            .select(
+               "id,created_at,name,avatar_url,is_verified",
+            )
             .in("id", followingIds);
 
       if (usersError) {
@@ -311,7 +357,7 @@ router.get("/:id/follows", async (req, res) => {
       const usersWithReviewCounts = (
          followingUsers || []
       ).map((user) => {
-         const normalizedUser = normalizeUser(user);
+         const normalizedUser = publicUser(user);
          return {
             ...normalizedUser,
             numReviews: reviewCounts[user.id] || 0,
@@ -344,62 +390,69 @@ router.get("/:id/follows", async (req, res) => {
 // POST /api/users/follows/sync
 // Sync follows: add new follows and remove unfollows
 // ===============================
-router.post("/follows/sync", async (req, res) => {
-   try {
-      const { follower_id, added, removed } =
-         syncFollowsSchema.parse(req.body);
-
-      // Add new follows
-      if (added.length > 0) {
-         const toInsert = added.map((following_id) => ({
-            follower_id,
-            following_id,
-         }));
-
-         const { error: insertError } = await supabase
-            .from("follows")
-            .insert(toInsert);
-
-         if (insertError) {
-            throw insertError;
+router.post(
+   "/follows/sync",
+   requireAuth,
+   async (req, res) => {
+      try {
+         const { follower_id, added, removed } =
+            syncFollowsSchema.parse(req.body);
+         if (!requireOwner(req, res, follower_id)) {
+            return;
          }
-      }
 
-      // Remove unfollowed users
-      if (removed.length > 0) {
-         const { error: deleteError } = await supabase
-            .from("follows")
-            .delete()
-            .eq("follower_id", follower_id)
-            .in("following_id", removed);
+         // Add new follows
+         if (added.length > 0) {
+            const toInsert = added.map((following_id) => ({
+               follower_id,
+               following_id,
+            }));
 
-         if (deleteError) {
-            throw deleteError;
+            const { error: insertError } = await supabase
+               .from("follows")
+               .insert(toInsert);
+
+            if (insertError) {
+               throw insertError;
+            }
          }
-      }
 
-      return res.status(200).json({
-         message: "Follows synced successfully",
-      });
-   } catch (error) {
-      if (error instanceof z.ZodError) {
-         console.error(
-            "Validation error syncing follows:",
+         // Remove unfollowed users
+         if (removed.length > 0) {
+            const { error: deleteError } = await supabase
+               .from("follows")
+               .delete()
+               .eq("follower_id", follower_id)
+               .in("following_id", removed);
+
+            if (deleteError) {
+               throw deleteError;
+            }
+         }
+
+         return res.status(200).json({
+            message: "Follows synced successfully",
+         });
+      } catch (error) {
+         if (error instanceof z.ZodError) {
+            console.error(
+               "Validation error syncing follows:",
+               error,
+            );
+            return res.status(400).json({
+               error:
+                  error.issues[0]?.message ||
+                  "Invalid request",
+            });
+         }
+
+         return handleServerError(
+            res,
+            "Error syncing follows",
             error,
          );
-         return res.status(400).json({
-            error:
-               error.issues[0]?.message ||
-               "Invalid request",
-         });
       }
-
-      return handleServerError(
-         res,
-         "Error syncing follows",
-         error,
-      );
-   }
-});
+   },
+);
 
 export default router;

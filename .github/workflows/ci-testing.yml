@@ -4,7 +4,7 @@ on:
    push:
       branches: [main]
    pull_request:
-      branches: [main]
+      branches: [main, chore/docker-local-pilot]
 
 permissions:
    contents: read
@@ -50,6 +50,10 @@ jobs:
               UMAMI_REVISION: ${{ github.sha }}
          - name: Verify HTTP and worker fixtures
            run: node tests/container-smoke.mjs
+           env:
+              UMAMI_REVISION: ${{ github.sha }}
+         - name: Verify API ownership against actual containers
+           run: node tests/auth-container-smoke.mjs
            env:
               UMAMI_REVISION: ${{ github.sha }}
          - name: Container logs on failure

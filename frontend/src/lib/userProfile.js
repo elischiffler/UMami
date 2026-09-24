@@ -1,4 +1,5 @@
 import { apiUrl } from "./api";
+import { authenticatedFetch } from "./authenticatedFetch";
 
 const CAL_POLY_EMAIL_RE = /^[^@\s]+@calpoly\.edu$/i;
 
@@ -32,7 +33,7 @@ export async function ensureUserProfile(user) {
       );
    }
 
-   const existingResponse = await fetch(
+   const existingResponse = await authenticatedFetch(
       apiUrl(`/api/users/${user.id}`),
    );
 
@@ -51,7 +52,7 @@ export async function ensureUserProfile(user) {
    }
 
    const name = getDisplayName(user);
-   const createResponse = await fetch(
+   const createResponse = await authenticatedFetch(
       apiUrl("/api/users"),
       {
          method: "POST",
@@ -75,7 +76,7 @@ export async function ensureUserProfile(user) {
    if (!createResponse.ok) {
       const errorMessage = createdProfile.error || "";
       if (errorMessage.includes("duplicate key value")) {
-         const retryResponse = await fetch(
+         const retryResponse = await authenticatedFetch(
             apiUrl(`/api/users/${user.id}`),
          );
 

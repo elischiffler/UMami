@@ -1,18 +1,17 @@
-import { useState, useCallback } from "react";
-import { supabase } from "../lib/supabase";
+import { useState, useCallback, useRef } from "react";
+import { apiUrl } from "../lib/api";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
 
 export function useBookmarks(initialIds = []) {
    // Use lazy initialization so the Set is only built on the first render
    const [bookmarkedIds, setBookmarkedIds] = useState(
       () => new Set(initialIds),
    );
+   const pendingRef = useRef(new Set());
+   const [pendingIds, setPendingIds] = useState(new Set());
 
    const toggleBookmark = useCallback(
-      async (
-         userId,
-         restaurantId,
-         isOptimisticOnly = false,
-      ) => {
+      async (userId, restaurantId) => {
          if (!userId) {
             return {
                error: new Error(
@@ -25,6 +24,11 @@ export function useBookmarks(initialIds = []) {
             typeof restaurantId === "string"
                ? parseInt(restaurantId, 10)
                : restaurantId;
+         if (pendingRef.current.has(id)) {
+            return { error: null, ignored: true };
+         }
+         pendingRef.current.add(id);
+         setPendingIds(new Set(pendingRef.current));
          const wasBookmarked = bookmarkedIds.has(id);
 
          // Optimistic UI update
@@ -38,27 +42,23 @@ export function useBookmarks(initialIds = []) {
             return next;
          });
 
-         // Some components batch their updates (e.g., User page on unload)
-         if (isOptimisticOnly) {
-            return { error: null };
-         }
-
          try {
-            if (wasBookmarked) {
-               const { error } = await supabase
-                  .from("bookmarks")
-                  .delete()
-                  .eq("user_id", userId)
-                  .eq("restaurant_id", id);
-               if (error) throw error;
-            } else {
-               const { error } = await supabase
-                  .from("bookmarks")
-                  .insert({
+            const response = await authenticatedFetch(
+               apiUrl("/api/restaurants/bookmarks/sync"),
+               {
+                  method: "POST",
+                  headers: {
+                     "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
                      user_id: userId,
-                     restaurant_id: id,
-                  });
-               if (error) throw error;
+                     added: wasBookmarked ? [] : [id],
+                     removed: wasBookmarked ? [id] : [],
+                  }),
+               },
+            );
+            if (!response.ok) {
+               throw new Error("Failed to update bookmark");
             }
 
             return { error: null };
@@ -74,6 +74,9 @@ export function useBookmarks(initialIds = []) {
             });
 
             return { error: err };
+         } finally {
+            pendingRef.current.delete(id);
+            setPendingIds(new Set(pendingRef.current));
          }
       },
       [bookmarkedIds],
@@ -81,6 +84,7 @@ export function useBookmarks(initialIds = []) {
 
    return {
       bookmarkedIds,
+      pendingIds,
       setBookmarkedIds,
       toggleBookmark,
    };

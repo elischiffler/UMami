@@ -7,6 +7,7 @@ function RestaurantCard({
    restaurant,
    isBookmarked: propIsBookmarked,
    onToggle,
+   disabled = false,
    className = "",
 }) {
    const [localIsBookmarked, setLocalIsBookmarked] =
@@ -53,6 +54,7 @@ function RestaurantCard({
                <button
                   className={`bookmark-button ${isBookmarked ? "bookmarked" : ""}`}
                   onClick={handleBookmarkToggle}
+                  disabled={disabled}
                   aria-label={
                      isBookmarked
                         ? `Remove bookmark for ${restaurant.name}`
