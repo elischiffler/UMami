@@ -186,7 +186,24 @@ function workerRequest(path) {
       ]).trim(),
    );
 }
-assert.equal(workerRequest("/fixture/fail").status, 500);
+async function unskippedWorkerRequest(path) {
+   const deadline = Date.now() + 10_000;
+   while (true) {
+      const result = workerRequest(path);
+      if (result.status !== 409) return result;
+      assert.ok(
+         Date.now() < deadline,
+         `worker remained busy for ${path}`,
+      );
+      await new Promise((resolve) =>
+         setTimeout(resolve, 200),
+      );
+   }
+}
+assert.equal(
+   (await unskippedWorkerRequest("/fixture/fail")).status,
+   500,
+);
 const unhealthy = JSON.parse(
    compose([
       "exec",
@@ -199,7 +216,11 @@ const unhealthy = JSON.parse(
 );
 assert.equal(unhealthy.status, 503);
 assert.equal(unhealthy.body.lastRun.status, "failed");
-assert.equal(workerRequest("/fixture/recover").status, 200);
+assert.equal(
+   (await unskippedWorkerRequest("/fixture/recover"))
+      .status,
+   200,
+);
 const recovered = JSON.parse(
    compose([
       "exec",
@@ -308,7 +329,7 @@ compose([
    "worker",
    "node",
    "-e",
-   "fetch('http://127.0.0.1:3004/fixture/hang',{method:'POST'}).catch(()=>{})",
+   "(async()=>{for(let i=0;i<30;i++){const r=await fetch('http://127.0.0.1:3004/fixture/hang',{method:'POST'});if(r.status!==409)return;await new Promise(resolve=>setTimeout(resolve,200))}})().catch(()=>{})",
 ]);
 const activeDeadline = Date.now() + 10_000;
 while (true) {

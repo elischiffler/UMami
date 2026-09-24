@@ -127,9 +127,13 @@ if (once) {
                );
             }
          }).then(
-            () => {
-               response.writeHead(200);
-               response.end("ok");
+            (result) => {
+               response.writeHead(
+                  result?.skipped ? 409 : 200,
+               );
+               response.end(
+                  result?.skipped ? "overlap" : "ok",
+               );
             },
             () => {
                response.writeHead(500);
