@@ -1,46 +1,64 @@
-# ci-testing.yml
-# GitHub Actions workflow for continuous integration testing of the Supabase Next.js template
-
-# Name of the CI workflow shown in GitHub Actions tab
 name: CI Testing
 
-# Triggers: run this workflow on every push to main branch
-# and on pull requests so Copilot can review them
 on:
    push:
       branches: [main]
    pull_request:
       branches: [main]
 
+permissions:
+   contents: read
+
 jobs:
-   build:
+   checks:
       runs-on: ubuntu-latest
-
-      # Pass Supabase credentials from GitHub Secrets as environment variables
-      env:
-         SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-         SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-
+      timeout-minutes: 20
       steps:
-         # Step 1: Check out the repository code onto the runner
          - uses: actions/checkout@v4
-
-         # Step 2: Set up Node.js version matching local development environment
-         - uses: actions/setup-node@v3
+         - uses: actions/setup-node@v4
            with:
               node-version: 24
-
-         # Step 3: Clean install root dependencies
+              cache: npm
+              cache-dependency-path: |
+                 package-lock.json
+                 backend/package-lock.json
+                 frontend/package-lock.json
          - run: npm ci
-
-         # Step 4: Clean install frontend dependencies
-         - run: npm ci --prefix frontend
-
-         # Step 5: Clean install backend dependencies
          - run: npm ci --prefix backend
-
-         # Step 6: Run ESLint and Prettier checks on frontend and backend
+         - run: npm ci --prefix frontend
+         - run: npm run format:check
          - run: npm run lint
-
-         # Step 7: Run all frontend and backend Jest tests
          - run: npm test
+         - run: npm --prefix frontend run build
+           env:
+              VITE_API_BASE_URL: http://127.0.0.1:3003
+              VITE_SUPABASE_URL: http://127.0.0.1:8083/supabase
+              VITE_SUPABASE_ANON_KEY: umami-local-fixture-anon
+
+   container-smoke:
+      runs-on: ubuntu-latest
+      timeout-minutes: 30
+      steps:
+         - uses: actions/checkout@v4
+         - name: Build isolated preview
+           run: docker compose build
+           env:
+              UMAMI_REVISION: ${{ github.sha }}
+         - name: Start isolated preview
+           run: docker compose up --detach --wait --wait-timeout 60
+           env:
+              UMAMI_REVISION: ${{ github.sha }}
+         - name: Verify HTTP and worker fixtures
+           run: node tests/container-smoke.mjs
+           env:
+              UMAMI_REVISION: ${{ github.sha }}
+         - name: Container logs on failure
+           if: failure()
+           run: docker compose logs --no-color --tail=100
+           env:
+              UMAMI_REVISION: ${{ github.sha }}
+         - name: Stop preview
+           if: always()
+           run: docker compose down
+           env:
+              UMAMI_REVISION: ${{ github.sha }}

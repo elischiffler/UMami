@@ -2,18 +2,22 @@ import { createClient } from "@supabase/supabase-js";
 import cron from "node-cron";
 import * as dotenv from "dotenv";
 import { fetchDineOnCampusSource } from "./scrapeCurrentMenus.js";
+import { runTrackedJob } from "../workerState.js";
+import { resolveScrapeDestination } from "../config/scrapeDestination.js";
 
 dotenv.config();
 
 // To run this scraper manually from /backend, use the following command:
 // node utils/restaurantScraper.js
 
-const DINE_ON_CAMPUS_URL =
-   "https://apiv4.dineoncampus.com/sites/59fb66f5a23ef231d62ed495/locations-public?for_map=true";
+const sourceOrigin =
+   process.env.DINE_ON_CAMPUS_ORIGIN ||
+   "https://apiv4.dineoncampus.com";
+const DINE_ON_CAMPUS_URL = `${sourceOrigin}/sites/59fb66f5a23ef231d62ed495/locations-public?for_map=true`;
 
 // Dynamically get today's date in YYYY-MM-DD format
 const today = new Date().toISOString().split("T")[0];
-const WEEKLY_SCHEDULE_URL = `https://apiv4.dineoncampus.com/locations/weekly_schedule?site_id=59fb66f5a23ef231d62ed495&date=${today}`;
+const WEEKLY_SCHEDULE_URL = `${sourceOrigin}/locations/weekly_schedule?site_id=59fb66f5a23ef231d62ed495&date=${today}`;
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY; // Service key needed to bypass RLS when upserting from backend
@@ -741,15 +745,23 @@ export const scrapeRestaurants = async () => {
       console.log("Validating image URLs...");
       const validateImageUrl = async (url) => {
          try {
-            const response = await fetch(url, {
-               method: "GET",
-               headers: {
-                  Range: "bytes=0-0",
-                  "User-Agent":
-                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            const response = await fetch(
+               resolveScrapeDestination(url),
+               {
+                  redirect:
+                     process.env.UMAMI_SCRAPER_MODE ===
+                     "fixture"
+                        ? "manual"
+                        : "follow",
+                  method: "GET",
+                  headers: {
+                     Range: "bytes=0-0",
+                     "User-Agent":
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                  },
+                  signal: AbortSignal.timeout(8000),
                },
-               signal: AbortSignal.timeout(8000),
-            });
+            );
             return (
                response.status >= 200 &&
                response.status < 400
@@ -978,14 +990,25 @@ export const scrapeRestaurants = async () => {
    }
 };
 
-// Schedule to run every Monday at 8:00 AM (local server time)
-if (
-   process.env.NODE_ENV !== "test" &&
-   !process.env.JEST_WORKER_ID
-) {
-   cron.schedule("0 8 * * 1", () => {
-      scrapeRestaurants().catch(() => {});
-   });
+export function scheduleRestaurantScraper() {
+   if (process.env.NODE_ENV === "test") {
+      return null;
+   }
+   return cron.schedule(
+      "0 8 * * 1",
+      () => {
+         runTrackedJob(
+            "restaurants",
+            scrapeRestaurants,
+         ).catch((error) => {
+            console.error(
+               "Scheduled restaurant scrape failed:",
+               error,
+            );
+         });
+      },
+      { timezone: "America/Los_Angeles" },
+   );
 }
 
 // Allow running the scraper manually from the command line

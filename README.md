@@ -1,5 +1,11 @@
 # UMami
 
+## Local container preview
+
+Use Node.js 24 and Docker Desktop with Linux containers. From the repository root, set `UMAMI_REVISION` to the checked-out Git SHA, then run `docker compose build` and `docker compose up --detach --wait --wait-timeout 60`. The production frontend build is served at http://127.0.0.1:8083, the API at http://127.0.0.1:3003. The fixture-only browser account is `preview@calpoly.edu` with password `preview-only`; it cannot access a real Supabase project. The worker and disposable fixture service are internal and have no host ports. See [the local runbook](docs/local-docker.md) for commands, recovery, and limitations.
+
+Check with `npm run format:check`, `npm run lint`, `npm test`, `npm --prefix frontend run build` (with the documented `VITE_*` values), and `node tests/container-smoke.mjs` while Compose is running. [Validation status](docs/validation.md) distinguishes local fixture evidence from checks requiring actual isolated Supabase resources. The Azure production deployment workflows remain in place for approved merges to `main`.
+
 ## Project Documents
 
 - [Tech Spec](https://docs.google.com/document/d/1biFBA__u-CT9FaSdJ9TKkr0FtEnpOxAQAJ2IcFMF8Ec/edit?tab=t.0)

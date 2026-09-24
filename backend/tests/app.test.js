@@ -79,7 +79,7 @@ describe("Server Initialization", () => {
             });
 
          const scraper = require("../utils/scrapeCurrentMenus.js");
-         jest
+         const scheduleSpy = jest
             .spyOn(scraper, "scheduleCurrentMenuScraper")
             .mockImplementation(() => {});
 
@@ -88,6 +88,8 @@ describe("Server Initialization", () => {
             .mockImplementation(() => {});
 
          require("../index.js");
+
+         expect(scheduleSpy).not.toHaveBeenCalled();
 
          expect(listenSpy).toHaveBeenCalledWith(
             "5000",
