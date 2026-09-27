@@ -69,4 +69,25 @@ describe("getIsOpenNow", () => {
 
       expect(getIsOpenNow(restaurant)).toBe(false);
    });
+
+   test("uses the seeded Thursday schedule at opening and closing boundaries", () => {
+      const restaurant = {
+         location_mapping: {
+            schedule: {
+               3: [{ start: "10:00:00", end: "14:00:00" }],
+            },
+         },
+      };
+      for (const [hour, minute, expected] of [
+         [9, 59, false],
+         [10, 0, true],
+         [13, 59, true],
+         [14, 1, false],
+      ]) {
+         jest.setSystemTime(
+            new Date(2026, 8, 24, hour, minute),
+         );
+         expect(getIsOpenNow(restaurant)).toBe(expected);
+      }
+   });
 });

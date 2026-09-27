@@ -2,13 +2,11 @@ import "dotenv/config";
 import cron from "node-cron";
 import { chromium } from "playwright";
 import { supabase } from "../config/supabaseClient.js";
+import { runTrackedJob } from "../workerState.js";
+import { trackBrowser } from "../activeBrowsers.js";
+import { resolveScrapeDestination } from "../config/scrapeDestination.js";
 
-const MENU_SCRAPE_SCHEDULES = [
-   "5 6 * * *",
-   "35 10 * * *",
-   "5 16 * * *",
-   "5 22 * * *",
-];
+export const MENU_SCRAPE_SCHEDULES = ["0 8 * * 2"];
 const SUBWAY_NUTRITION_PDF_URL =
    "https://www.subway.com/en-us/-/media/northamerica/usa/nutrition/nutritiondocuments/2026/us_nutrition_en_1-2026.pdf";
 const SUBWAY_SOURCE_ALIASES = new Set([
@@ -952,7 +950,9 @@ export function parseSubwayNutritionText(
 
 async function fetchSubwayNutritionText(url) {
    const { PDFParse } = await import("pdf-parse");
-   const parser = new PDFParse({ url });
+   const parser = new PDFParse({
+      url: resolveScrapeDestination(url),
+   });
 
    try {
       const result = await parser.getText();
@@ -970,15 +970,22 @@ export async function fetchMenuSource(url) {
       return fetchDineOnCampusSource(url);
    }
 
-   const response = await fetch(url, {
-      headers: {
-         "User-Agent":
-            "UMamiApp/1.0 (CSC308-Student-Project; menu scraper)",
-         Accept:
-            "application/json,text/html;q=0.9,*/*;q=0.8",
-         "Accept-Language": "en-US,en;q=0.9",
+   const response = await fetch(
+      resolveScrapeDestination(url),
+      {
+         redirect:
+            process.env.UMAMI_SCRAPER_MODE === "fixture"
+               ? "manual"
+               : "follow",
+         headers: {
+            "User-Agent":
+               "UMamiApp/1.0 (CSC308-Student-Project; menu scraper)",
+            Accept:
+               "application/json,text/html;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+         },
       },
-   });
+   );
    const text = await response.text();
 
    if (!response.ok) {
@@ -1002,9 +1009,11 @@ export async function fetchMenuSource(url) {
 }
 
 export async function fetchDineOnCampusSource(url) {
+   const destination = resolveScrapeDestination(url);
    const browser = await chromium.launch({
       headless: true,
    });
+   const untrack = await trackBrowser(browser);
 
    try {
       const context = await browser.newContext({
@@ -1016,8 +1025,22 @@ export async function fetchDineOnCampusSource(url) {
             Referer: "https://dineoncampus.com/",
          },
       });
+      if (process.env.UMAMI_SCRAPER_MODE === "fixture") {
+         await context.route("**/*", (route) => {
+            const destination = new URL(
+               route.request().url(),
+            );
+            if (
+               destination.origin ===
+               "http://fixture-supabase:54321"
+            ) {
+               return route.continue();
+            }
+            return route.abort();
+         });
+      }
       const page = await context.newPage();
-      const response = await page.goto(url, {
+      const response = await page.goto(destination, {
          waitUntil: "networkidle",
          timeout: 30000,
       });
@@ -1040,6 +1063,7 @@ export async function fetchDineOnCampusSource(url) {
       return await response.text();
    } finally {
       await browser.close();
+      untrack();
    }
 }
 
@@ -1389,6 +1413,7 @@ export async function scrapeCurrentMenus({
    date = getArgValue("date") || getTodayDate(),
    dryRun = hasArg("dry-run"),
    delayMs = Number(getArgValue("delay-ms") || 1000),
+   failOnRestaurantError = false,
 } = {}) {
    const restaurantIdArg =
       restaurantId ?? getArgValue("restaurant-id");
@@ -1421,6 +1446,8 @@ export async function scrapeCurrentMenus({
    console.log(
       `Scraping ${restaurants.length} restaurant menu source(s) for ${date}${dryRun ? " (dry run)" : ""}.`,
    );
+
+   const failures = [];
 
    for (const restaurant of restaurants) {
       try {
@@ -1462,9 +1489,17 @@ export async function scrapeCurrentMenus({
          console.error(
             `Failed to scrape ${restaurant.name || `Restaurant ${restaurant.id}`}: ${error.message}`,
          );
+         failures.push(error);
       }
 
       await delay(delayMs);
+   }
+
+   if (failOnRestaurantError && failures.length > 0) {
+      throw new AggregateError(
+         failures,
+         `${failures.length} restaurant menu scrape(s) failed.`,
+      );
    }
 }
 
@@ -1477,7 +1512,11 @@ export function scheduleCurrentMenuScraper() {
       cron.schedule(
          cronExpression,
          () => {
-            scrapeCurrentMenus().catch((error) => {
+            runTrackedJob("menus", () =>
+               scrapeCurrentMenus({
+                  failOnRestaurantError: true,
+               }),
+            ).catch((error) => {
                console.error(
                   `Scheduled menu scrape failed:`,
                   error,
@@ -1492,7 +1531,9 @@ export function scheduleCurrentMenuScraper() {
 }
 
 if (process.argv[1]?.endsWith("scrapeCurrentMenus.js")) {
-   scrapeCurrentMenus().catch((error) => {
+   scrapeCurrentMenus({
+      failOnRestaurantError: true,
+   }).catch((error) => {
       console.error(error);
       process.exitCode = 1;
    });

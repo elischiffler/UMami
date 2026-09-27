@@ -1197,18 +1197,23 @@ describe("restaurantScraper", () => {
          consoleWarnSpy.mockRestore();
       });
 
-      it("should schedule a cron job if NODE_ENV is not 'test'", async () => {
+      it("should schedule a cron job only when explicitly started", async () => {
          process.env.NODE_ENV = "production";
 
          // Mock cron before importing
          const cron = await import("node-cron");
          const scheduleSpy = jest.spyOn(cron, "schedule");
 
-         await import("../utils/restaurantScraper.js");
+         const { scheduleRestaurantScraper } =
+            await import("../utils/restaurantScraper.js");
+
+         expect(scheduleSpy).not.toHaveBeenCalled();
+         scheduleRestaurantScraper();
 
          expect(scheduleSpy).toHaveBeenCalledWith(
             "0 8 * * 1",
             expect.any(Function),
+            { timezone: "America/Los_Angeles" },
          );
 
          // Execute the cron callback directly to test the `.catch(() => {})` logic
@@ -1230,7 +1235,9 @@ describe("restaurantScraper", () => {
          process.env.NODE_ENV = "production";
          const cron = await import("node-cron");
          const scheduleSpy = jest.spyOn(cron, "schedule");
-         await import("../utils/restaurantScraper.js");
+         const { scheduleRestaurantScraper } =
+            await import("../utils/restaurantScraper.js");
+         scheduleRestaurantScraper();
 
          const cronCallback = scheduleSpy.mock.calls[0][1];
          const { fetchDineOnCampusSource } =

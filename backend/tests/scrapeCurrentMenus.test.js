@@ -1113,7 +1113,12 @@ describe("scheduleCurrentMenuScraper", () => {
    it("schedules cron jobs in production environment", async () => {
       process.env.NODE_ENV = "production";
       scheduleCurrentMenuScraper();
-      expect(cron.schedule).toHaveBeenCalledTimes(4);
+      expect(cron.schedule).toHaveBeenCalledTimes(1);
+      expect(cron.schedule).toHaveBeenCalledWith(
+         "0 8 * * 2",
+         expect.any(Function),
+         { timezone: "America/Los_Angeles" },
+      );
 
       // Trigger the cron callback to ensure it processes gracefully
       const cronCallback = cron.schedule.mock.calls[0][1];

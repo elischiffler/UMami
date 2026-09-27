@@ -1,0 +1,83 @@
+name: umami
+
+x-runtime: &runtime
+   read_only: true
+   cap_drop: [ALL]
+   security_opt: [no-new-privileges:true]
+   pids_limit: 128
+   restart: unless-stopped
+   stop_grace_period: 10s
+   logging:
+      driver: json-file
+      options:
+         max-size: "10m"
+         max-file: "3"
+
+services:
+   api:
+      <<: *runtime
+      build:
+         context: ./backend
+         target: api
+         args:
+            VCS_REF: ${UMAMI_REVISION:?Set UMAMI_REVISION to the merged main commit SHA}
+      image: umami-api:${UMAMI_REVISION:?Set UMAMI_REVISION to the merged main commit SHA}
+      env_file:
+         - path: ./backend/.env.production
+           required: true
+      environment:
+         PORT: "3003"
+         CORS_ORIGINS: https://umami.elischiffler.dev
+      ports:
+         - 127.0.0.1:${UMAMI_API_PORT:-3003}:3003
+      tmpfs:
+         - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+      mem_limit: 256m
+      cpus: 0.5
+      healthcheck:
+         test:
+            [
+               CMD,
+               node,
+               -e,
+               "fetch('http://127.0.0.1:3003/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+            ]
+         interval: 30s
+         timeout: 5s
+         start_period: 30s
+         retries: 3
+
+   worker:
+      <<: *runtime
+      build:
+         context: ./backend
+         target: worker
+         args:
+            VCS_REF: ${UMAMI_REVISION:?Set UMAMI_REVISION to the merged main commit SHA}
+      image: umami-worker:${UMAMI_REVISION:?Set UMAMI_REVISION to the merged main commit SHA}
+      env_file:
+         - path: ./backend/.env.production
+           required: true
+      environment:
+         UMAMI_SCRAPER_MODE: live
+         UMAMI_ALLOW_LIVE_SCRAPES: "yes"
+         WORKER_PORT: "3004"
+         TZ: America/Los_Angeles
+      init: true
+      tmpfs:
+         - /tmp:rw,nosuid,size=256m,mode=1777
+      shm_size: 256m
+      mem_limit: 1g
+      cpus: 1.5
+      healthcheck:
+         test:
+            [
+               CMD,
+               node,
+               -e,
+               "fetch('http://127.0.0.1:3004/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+            ]
+         interval: 30s
+         timeout: 5s
+         start_period: 30s
+         retries: 3
