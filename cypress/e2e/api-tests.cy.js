@@ -68,29 +68,41 @@ describe("Backend API Tests", () => {
 
          const userId = authResponse.body.user.id;
 
-         cy.request({
-            method: "POST",
-            url: `${API_URL}/reviews`,
-            body: {
-               restaurant_id: 1,
-               user_id: userId,
-               rating: 5,
-               comment:
-                  "This is a programmatic E2E test review!",
-               tags: [],
-               photo_urls: [],
-            },
-         }).then((postResponse) => {
-            expect(postResponse.status).to.eq(201);
+         cy.request("GET", `${API_URL}/restaurants`).then(
+            (restaurantsResponse) => {
+               expect(restaurantsResponse.body).to.be.an(
+                  "array",
+               ).and.not.be.empty;
+               const restaurantId =
+                  restaurantsResponse.body[0].id;
 
-            cy.request({
-               method: "DELETE",
-               url: `${API_URL}/reviews/${postResponse.body.id}`,
-               body: { user_id: userId },
-            }).then((deleteResponse) => {
-               expect(deleteResponse.status).to.eq(200);
-            });
-         });
+               cy.request({
+                  method: "POST",
+                  url: `${API_URL}/reviews`,
+                  body: {
+                     restaurant_id: restaurantId,
+                     user_id: userId,
+                     rating: 5,
+                     comment:
+                        "This is a programmatic E2E test review!",
+                     tags: [],
+                     photo_urls: [],
+                  },
+               }).then((postResponse) => {
+                  expect(postResponse.status).to.eq(201);
+
+                  cy.request({
+                     method: "DELETE",
+                     url: `${API_URL}/reviews/${postResponse.body.id}`,
+                     body: { user_id: userId },
+                  }).then((deleteResponse) => {
+                     expect(deleteResponse.status).to.eq(
+                        200,
+                     );
+                  });
+               });
+            },
+         );
       });
    });
 });

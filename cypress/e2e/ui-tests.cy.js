@@ -45,9 +45,16 @@ describe("Frontend UI Tests", () => {
       // Dismiss the photo prompt modal if it appears before interacting with the page
       dismissPhotoModal();
 
+      const restaurantName = Cypress.env(
+         "TEST_RESTAURANT_NAME",
+      );
+      expect(
+         restaurantName,
+         "Seeded restaurant name",
+      ).to.be.a("string").and.not.be.empty;
       cy.get(
          '.search-input[placeholder*="Search restaurants" i]',
-      ).type("Taco Bell");
+      ).type(restaurantName);
 
       cy.intercept("GET", `${API_URL}/restaurants/*`).as(
          "getRestaurantInfo",
@@ -55,7 +62,7 @@ describe("Frontend UI Tests", () => {
       cy.intercept("GET", `${API_URL}/reviews*`).as(
          "getReviews",
       );
-      cy.contains("Taco Bell").click();
+      cy.contains(restaurantName).click();
 
       cy.wait("@getRestaurantInfo");
       cy.wait("@getReviews");
@@ -141,15 +148,30 @@ describe("Frontend UI Tests", () => {
       // Dismiss the photo prompt modal if it appears before interacting with the page
       dismissPhotoModal();
 
-      // 2. Follow 'musty mustang' in the search bar
+      const followUserName = Cypress.env(
+         "TEST_FOLLOW_USER_NAME",
+      );
+      const bookmarkRestaurantName = Cypress.env(
+         "TEST_BOOKMARK_RESTAURANT_NAME",
+      );
+      expect(
+         followUserName,
+         "Seeded follow target",
+      ).to.be.a("string").and.not.be.empty;
+      expect(
+         bookmarkRestaurantName,
+         "Seeded bookmark restaurant",
+      ).to.be.a("string").and.not.be.empty;
+
+      // 2. Follow the seeded user in the search bar
       cy.intercept("GET", `${API_URL}/users?search=*`).as(
          "searchUsers",
       );
       cy.get(".search-icon").first().click();
-      cy.get(".search-modal-input").type("musty mustang");
+      cy.get(".search-modal-input").type(followUserName);
       cy.wait("@searchUsers");
 
-      cy.contains(".search-result-name", /musty mustang/i)
+      cy.contains(".search-result-name", followUserName)
          .parents(".search-result-item")
          .find("button.follow-btn")
          .then(($btn) => {
@@ -160,8 +182,11 @@ describe("Frontend UI Tests", () => {
 
       cy.get(".search-modal-close").click();
 
-      // 3. Bookmark a noodles restaurant
-      cy.contains(".restaurant-name", /noodle/i)
+      // 3. Bookmark the seeded restaurant
+      cy.contains(
+         ".restaurant-name",
+         bookmarkRestaurantName,
+      )
          .parents(".restaurant-card")
          .find(".bookmark-button")
          .then(($btn) => {
@@ -177,7 +202,10 @@ describe("Frontend UI Tests", () => {
 
       // 5. Click the restaurant the user bookmarked
       cy.get("#restaurants-list")
-         .contains(".restaurant-name", /noodle/i)
+         .contains(
+            ".restaurant-name",
+            bookmarkRestaurantName,
+         )
          .click({ force: true });
       cy.url().should("include", "/restaurants/");
 
@@ -188,14 +216,17 @@ describe("Frontend UI Tests", () => {
 
       // 7. Unbookmark the restaurant
       cy.get("#restaurants-list")
-         .contains(".restaurant-name", /noodle/i)
+         .contains(
+            ".restaurant-name",
+            bookmarkRestaurantName,
+         )
          .parents(".restaurant-card")
          .find(".bookmark-button")
          .click({ force: true });
 
-      // 8. Enter 'musty mustang' user page via the users followed list
+      // 8. Enter the seeded user's page via the users followed list
       cy.get("#following-list")
-         .contains(/musty mustang/i)
+         .contains(followUserName)
          .click({ force: true });
       cy.url().should("include", "/user/");
 
@@ -206,7 +237,7 @@ describe("Frontend UI Tests", () => {
 
       // 10. Unfollow musty
       cy.get("#following-list")
-         .contains(/musty mustang/i)
+         .contains(followUserName)
          .parents(".followed-user-card")
          .find(".follow-button")
          .click({ force: true });
