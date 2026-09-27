@@ -62,7 +62,10 @@ services:
          UMAMI_SCRAPER_MODE: live
          UMAMI_ALLOW_LIVE_SCRAPES: "yes"
          WORKER_PORT: "3004"
+         WORKER_STATE_PATH: /var/lib/umami-worker/status.json
          TZ: America/Los_Angeles
+      volumes:
+         - worker-state:/var/lib/umami-worker
       init: true
       tmpfs:
          - /tmp:rw,nosuid,size=256m,mode=1777
@@ -81,3 +84,6 @@ services:
          timeout: 5s
          start_period: 30s
          retries: 3
+
+volumes:
+   worker-state:

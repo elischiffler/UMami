@@ -14,7 +14,9 @@ import {
    getWorkerState,
    runTrackedJob,
    setSchedulerActive,
+   configureWorkerState,
 } from "./workerState.js";
+import { operationalEvent } from "./operationalLog.js";
 
 function requireSafeConfiguration() {
    const mode = process.env.UMAMI_SCRAPER_MODE;
@@ -50,6 +52,7 @@ function requireSafeConfiguration() {
 }
 
 requireSafeConfiguration();
+configureWorkerState(process.env.WORKER_STATE_PATH || null);
 
 const once = process.argv
    .find((argument) => argument.startsWith("--once="))
@@ -168,6 +171,7 @@ if (once) {
       Number(process.env.WORKER_PORT || 3004),
       "0.0.0.0",
       () => {
+         operationalEvent("info", "Worker listening");
          console.log(
             `UMami worker started with ${schedules.length} schedules in America/Los_Angeles.`,
          );
@@ -205,6 +209,10 @@ if (once) {
       ]);
       clearTimeout(shutdownTimer);
       if (!cleaned || getActiveRun()) {
+         operationalEvent(
+            "error",
+            "Worker shutdown deadline reached",
+         );
          console.error(
             "Worker shutdown deadline reached with an active scrape; exiting nonzero.",
          );

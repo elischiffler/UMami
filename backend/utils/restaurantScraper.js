@@ -748,11 +748,7 @@ export const scrapeRestaurants = async () => {
             const response = await fetch(
                resolveScrapeDestination(url),
                {
-                  redirect:
-                     process.env.UMAMI_SCRAPER_MODE ===
-                     "fixture"
-                        ? "manual"
-                        : "follow",
+                  redirect: "manual",
                   method: "GET",
                   headers: {
                      Range: "bytes=0-0",

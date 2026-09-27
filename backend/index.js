@@ -8,6 +8,7 @@ import notificationsRouter from "./routes/notifications.js";
 import { supabase } from "./config/supabaseClient.js";
 import uploadsRouter from "./routes/uploads.js";
 import { optionalAuth } from "./middleware/auth.js";
+import { operationalEvent } from "./operationalLog.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -44,6 +45,9 @@ app.use("/api/uploads", uploadsRouter);
 
 // Temporary debug route to verify Supabase connection is working
 app.get("/test-supabase", async (req, res) => {
+   if (process.env.NODE_ENV === "production") {
+      return res.sendStatus(404);
+   }
    const { data, error } = await supabase
       .from("restaurants")
       .select("*")
@@ -72,6 +76,7 @@ app.get("/ready", async (req, res) => {
       }
       res.json({ ready: true });
    } catch {
+      operationalEvent("error", "API readiness failed");
       res.status(503).json({ ready: false });
    }
 });
@@ -84,6 +89,7 @@ app.get("/", (req, res) => {
 // Only start the server if we're not in a test environment
 if (process.env.NODE_ENV !== "test") {
    const server = app.listen(PORT, () => {
+      operationalEvent("info", "API listening");
       console.log(
          `Server is alive on http://localhost:${PORT}`,
       );

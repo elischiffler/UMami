@@ -12,18 +12,19 @@ RUN npx playwright install --with-deps chromium && chown -R node:node /ms-playwr
 FROM dependencies AS api
 COPY --chown=node:node . .
 ARG VCS_REF
-LABEL org.opencontainers.image.source="https://github.com/Calpoly-Yelp/UMami" \
+LABEL org.opencontainers.image.source="https://github.com/elischiffler/UMami" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.title="UMami API"
 ENV NODE_ENV=production
 USER node
 EXPOSE 3003
-CMD ["node", "index.js"]
+CMD ["node", "--import", "./operationalBootstrap.js", "index.js"]
 
 FROM browser-dependencies AS worker
 COPY --chown=node:node . .
+RUN mkdir -p /var/lib/umami-worker && chown node:node /var/lib/umami-worker
 ARG VCS_REF
-LABEL org.opencontainers.image.source="https://github.com/Calpoly-Yelp/UMami" \
+LABEL org.opencontainers.image.source="https://github.com/elischiffler/UMami" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.title="UMami scraper worker"
 ENV NODE_ENV=production \
@@ -31,4 +32,4 @@ ENV NODE_ENV=production \
     HOME=/tmp
 USER node
 EXPOSE 3004
-CMD ["node", "worker.js"]
+CMD ["node", "--import", "./operationalBootstrap.js", "worker.js"]
