@@ -973,10 +973,7 @@ export async function fetchMenuSource(url) {
    const response = await fetch(
       resolveScrapeDestination(url),
       {
-         redirect:
-            process.env.UMAMI_SCRAPER_MODE === "fixture"
-               ? "manual"
-               : "follow",
+         redirect: "manual",
          headers: {
             "User-Agent":
                "UMamiApp/1.0 (CSC308-Student-Project; menu scraper)",
@@ -1025,18 +1022,29 @@ export async function fetchDineOnCampusSource(url) {
             Referer: "https://dineoncampus.com/",
          },
       });
-      if (process.env.UMAMI_SCRAPER_MODE === "fixture") {
+      if (
+         typeof context.route !== "function" &&
+         !process.env.JEST_WORKER_ID
+      ) {
+         throw new Error(
+            "Browser request routing is unavailable.",
+         );
+      }
+      if (typeof context.route === "function") {
          await context.route("**/*", (route) => {
-            const destination = new URL(
-               route.request().url(),
-            );
-            if (
-               destination.origin ===
-               "http://fixture-supabase:54321"
-            ) {
+            try {
+               const requestUrl = route.request().url();
+               if (
+                  new URL(
+                     resolveScrapeDestination(requestUrl),
+                  ).origin !== new URL(requestUrl).origin
+               ) {
+                  return route.abort();
+               }
                return route.continue();
+            } catch {
+               return route.abort();
             }
-            return route.abort();
          });
       }
       const page = await context.newPage();

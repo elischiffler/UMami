@@ -1,5 +1,45 @@
-import { describe, it, expect } from "@jest/globals";
+import {
+   afterEach,
+   describe,
+   expect,
+   it,
+} from "@jest/globals";
 import { resolveScrapeDestination } from "../config/scrapeDestination.js";
+
+describe("live scraper destination allowlist", () => {
+   const previous = process.env.UMAMI_SCRAPER_MODE;
+   afterEach(() => {
+      if (previous === undefined) {
+         delete process.env.UMAMI_SCRAPER_MODE;
+      } else {
+         process.env.UMAMI_SCRAPER_MODE = previous;
+      }
+   });
+
+   it("permits only reviewed HTTPS origins", () => {
+      process.env.UMAMI_SCRAPER_MODE = "live";
+      expect(
+         resolveScrapeDestination(
+            "https://apiv4.dineoncampus.com/locations",
+         ),
+      ).toBe("https://apiv4.dineoncampus.com/locations");
+      expect(
+         resolveScrapeDestination(
+            "https://www.subway.com/nutrition.pdf",
+         ),
+      ).toBe("https://www.subway.com/nutrition.pdf");
+      expect(() =>
+         resolveScrapeDestination(
+            "http://apiv4.dineoncampus.com/locations",
+         ),
+      ).toThrow("not allowlisted");
+      expect(() =>
+         resolveScrapeDestination(
+            "https://apiv4.dineoncampus.com.evil.invalid/",
+         ),
+      ).toThrow("not allowlisted");
+   });
+});
 
 describe("fixture scraper destinations", () => {
    const originalMode = process.env.UMAMI_SCRAPER_MODE;
