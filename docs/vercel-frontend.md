@@ -16,9 +16,12 @@ nested client routes to `index.html`.
   static frontend but cannot validate login or data workflows until a separate
   test Supabase project or branch is available. Do not test writes against the
   live project.
-- `VITE_API_BASE_URL` can select the API endpoint for either environment. If it
-  is unset in production, the existing Azure API URL remains the fallback.
-  Keep that backend running until a replacement has passed functional checks.
+- Vercel proxies same-origin `/api/*` requests to the existing Azure API. The
+  frontend uses that path by default in production, so the browser does not
+  require the Azure API to allow the Vercel domain through CORS.
+- `VITE_API_BASE_URL` can select another API endpoint when explicitly set.
+  Keep the Azure backend running until a replacement has passed functional
+  checks; this rewrite does not deploy or change the API or scraper.
 
 ## Checks and cutover
 

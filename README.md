@@ -10,11 +10,12 @@
 
 ### Live App
 
-🌐 [UMami](https://thankful-hill-0f3846d10.7.azurestaticapps.net)
+🌐 [UMami frontend](https://umami.elischiffler.dev)
 
-The personal fork is staging the frontend on Vercel. The Azure URL above
-remains the live app until the Vercel build, API connection, and custom domain
-are verified. See [the Vercel frontend runbook](docs/vercel-frontend.md).
+The frontend is on Vercel. Its API and scheduled scrapers still run on Azure;
+the managed data services remain in Supabase. See
+[the Vercel frontend runbook](docs/vercel-frontend.md) for routing and
+verification limits.
 
 ### CI/CD Status
 

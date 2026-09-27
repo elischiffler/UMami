@@ -1,6 +1,10 @@
 {
    "$schema": "https://openapi.vercel.sh/vercel.json",
    "rewrites": [
+      {
+         "source": "/api/:path*",
+         "destination": "https://umami-api-calpoly-bpgzacb7ckf3hked.westus3-01.azurewebsites.net/api/:path*"
+      },
       { "source": "/(.*)", "destination": "/index.html" }
    ]
 }
