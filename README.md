@@ -12,6 +12,10 @@
 
 🌐 [UMami](https://thankful-hill-0f3846d10.7.azurestaticapps.net)
 
+The personal fork is staging the frontend on Vercel. The Azure URL above
+remains the live app until the Vercel build, API connection, and custom domain
+are verified. See [the Vercel frontend runbook](docs/vercel-frontend.md).
+
 ### CI/CD Status
 
 [![Frontend Deploy](https://img.shields.io/github/actions/workflow/status/Calpoly-Yelp/UMami/azure-static-web-apps-thankful-hill-0f3846d10.yml?style=for-the-badge&label=Frontend+Deploy&logo=microsoft-azure)](https://github.com/Calpoly-Yelp/UMami/actions/workflows/azure-static-web-apps-thankful-hill-0f3846d10.yml)
