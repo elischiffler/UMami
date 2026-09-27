@@ -16,6 +16,17 @@ describe("App/Index Routes", () => {
       jest.clearAllMocks();
    });
 
+   it("allows preflight requests from the Vercel production frontend", async () => {
+      const res = await request(app)
+         .options("/api/restaurants")
+         .set("Origin", "https://umami.elischiffler.dev")
+         .set("Access-Control-Request-Method", "GET");
+      expect(res.statusCode).toBe(204);
+      expect(
+         res.headers["access-control-allow-origin"],
+      ).toBe("https://umami.elischiffler.dev");
+   });
+
    it("GET /test-supabase should return success on valid connection", async () => {
       supabase.from.mockReturnValue({
          select: jest.fn().mockReturnThis(),

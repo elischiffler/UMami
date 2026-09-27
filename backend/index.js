@@ -20,6 +20,7 @@ const additionalOrigins = (process.env.CORS_ORIGINS || "")
 app.use(
    cors({
       origin: [
+         "https://umami.elischiffler.dev", // Vercel production frontend
          "https://thankful-hill-0f3846d10.7.azurestaticapps.net", // Azure production frontend
          "http://localhost:5173", // Local Vite dev server
          "http://localhost:5174",
