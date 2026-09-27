@@ -1,0 +1,63 @@
+name: Isolated full E2E
+
+on:
+   workflow_dispatch:
+
+concurrency:
+   group: isolated-e2e
+   cancel-in-progress: false
+
+jobs:
+   full-e2e:
+      if: github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      environment: e2e
+      steps:
+         - uses: actions/checkout@v4
+         - uses: actions/setup-node@v4
+           with:
+              node-version: 24
+              cache: npm
+         - name: Check isolated test configuration
+           shell: bash
+           env:
+              VITE_SUPABASE_URL: ${{ vars.E2E_SUPABASE_URL }}
+              VITE_SUPABASE_ANON_KEY: ${{ vars.E2E_SUPABASE_ANON_KEY }}
+              SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+              TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+              TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+              TEST_RESTAURANT_NAME: ${{ vars.E2E_RESTAURANT_NAME }}
+              TEST_BOOKMARK_RESTAURANT_NAME: ${{ vars.E2E_BOOKMARK_RESTAURANT_NAME }}
+              TEST_FOLLOW_USER_NAME: ${{ vars.E2E_FOLLOW_USER_NAME }}
+           run: |
+              for name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY SUPABASE_SECRET_KEY TEST_EMAIL TEST_PASSWORD TEST_RESTAURANT_NAME TEST_BOOKMARK_RESTAURANT_NAME TEST_FOLLOW_USER_NAME; do
+                 if [[ -z "${!name}" ]]; then
+                    echo "Missing e2e environment setting: $name" >&2
+                    exit 1
+                 fi
+              done
+              if [[ ! "$VITE_SUPABASE_URL" =~ ^https://[a-z0-9]+\.supabase\.co/?$ ]]; then
+                 echo "E2E_SUPABASE_URL must be a Supabase project URL" >&2
+                 exit 1
+              fi
+         - run: npm ci
+         - run: npm ci --prefix backend
+         - run: npm ci --prefix frontend
+         - name: Run data-changing journeys against isolated project
+           uses: cypress-io/github-action@v6
+           with:
+              install: false
+              start: npx --yes concurrently "npm run dev --prefix backend" "npm run dev --prefix frontend -- --host 0.0.0.0"
+              wait-on: http://localhost:5173/signin,http://localhost:4000/api/restaurants
+              wait-on-timeout: 120
+              spec: cypress/e2e/api-tests.cy.js,cypress/e2e/ui-tests.cy.js
+           env:
+              VITE_SUPABASE_URL: ${{ vars.E2E_SUPABASE_URL }}
+              VITE_SUPABASE_ANON_KEY: ${{ vars.E2E_SUPABASE_ANON_KEY }}
+              SUPABASE_URL: ${{ vars.E2E_SUPABASE_URL }}
+              SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+              TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+              TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+              TEST_RESTAURANT_NAME: ${{ vars.E2E_RESTAURANT_NAME }}
+              TEST_BOOKMARK_RESTAURANT_NAME: ${{ vars.E2E_BOOKMARK_RESTAURANT_NAME }}
+              TEST_FOLLOW_USER_NAME: ${{ vars.E2E_FOLLOW_USER_NAME }}

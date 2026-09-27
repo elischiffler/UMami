@@ -1,35 +1,29 @@
-name: Cypress provider integration
+name: Browser smoke
 
-# These existing end-to-end tests require an isolated Supabase Auth and Storage
-# environment. Run them manually only after those test-only credentials exist.
 on:
-   workflow_dispatch:
-
-permissions:
-   contents: read
+   pull_request:
+      branches: [main]
+   push:
+      branches: [main]
 
 jobs:
-   cypress-run:
+   browser-smoke:
       runs-on: ubuntu-latest
-      environment: isolated-supabase-test
-      timeout-minutes: 20
       steps:
          - uses: actions/checkout@v4
          - uses: actions/setup-node@v4
            with:
               node-version: 24
+              cache: npm
          - run: npm ci
-         - run: npm ci --prefix backend
          - run: npm ci --prefix frontend
-         - uses: cypress-io/github-action@v6
+         - name: Run browser smoke against stubbed services
+           uses: cypress-io/github-action@v6
            with:
-              start: npx concurrently "npm run dev --prefix backend" "npm run dev --prefix frontend"
-              wait-on: "http://localhost:5173,http://localhost:4000/api/restaurants"
-              wait-on-timeout: 120
+              install: false
+              start: npm run dev --prefix frontend -- --host 0.0.0.0
+              wait-on: http://localhost:5173/signin
+              spec: cypress/e2e/smoke.cy.js
            env:
-              VITE_SUPABASE_URL: ${{ secrets.ISOLATED_SUPABASE_URL }}
-              VITE_SUPABASE_ANON_KEY: ${{ secrets.ISOLATED_SUPABASE_ANON_KEY }}
-              SUPABASE_URL: ${{ secrets.ISOLATED_SUPABASE_URL }}
-              SUPABASE_SECRET_KEY: ${{ secrets.ISOLATED_SUPABASE_SECRET_KEY }}
-              TEST_EMAIL: ${{ secrets.ISOLATED_TEST_EMAIL }}
-              TEST_PASSWORD: ${{ secrets.ISOLATED_TEST_PASSWORD }}
+              VITE_SUPABASE_URL: https://example.supabase.co
+              VITE_SUPABASE_ANON_KEY: public-test-key

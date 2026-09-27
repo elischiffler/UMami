@@ -6,12 +6,7 @@ import { runTrackedJob } from "../workerState.js";
 import { trackBrowser } from "../activeBrowsers.js";
 import { resolveScrapeDestination } from "../config/scrapeDestination.js";
 
-export const MENU_SCRAPE_SCHEDULES = [
-   "5 6 * * *",
-   "35 10 * * *",
-   "5 16 * * *",
-   "5 22 * * *",
-];
+export const MENU_SCRAPE_SCHEDULES = ["0 8 * * 2"];
 const SUBWAY_NUTRITION_PDF_URL =
    "https://www.subway.com/en-us/-/media/northamerica/usa/nutrition/nutritiondocuments/2026/us_nutrition_en_1-2026.pdf";
 const SUBWAY_SOURCE_ALIASES = new Set([

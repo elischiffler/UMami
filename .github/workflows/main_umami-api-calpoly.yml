@@ -8,6 +8,8 @@ on:
 
 jobs:
    build:
+      # The Azure credentials and app belong to the original organization.
+      if: github.repository == 'Calpoly-Yelp/UMami'
       runs-on: ubuntu-latest
       permissions:
          contents: read

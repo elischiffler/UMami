@@ -1,39 +1,49 @@
+# ci-testing.yml
+# GitHub Actions workflow for continuous integration testing of the Supabase Next.js template
+
+# Name of the CI workflow shown in GitHub Actions tab
 name: CI Testing
 
+# Triggers: run this workflow on every push to main branch
+# and on pull requests so Copilot can review them
 on:
    push:
       branches: [main]
    pull_request:
       branches: [main, chore/docker-local-pilot]
 
-permissions:
-   contents: read
-
 jobs:
-   checks:
+   build:
       runs-on: ubuntu-latest
-      timeout-minutes: 20
+
       steps:
+         # Step 1: Check out the repository code onto the runner
          - uses: actions/checkout@v4
-         - uses: actions/setup-node@v4
+
+         # Step 2: Set up Node.js version matching local development environment
+         - uses: actions/setup-node@v3
            with:
               node-version: 24
-              cache: npm
-              cache-dependency-path: |
-                 package-lock.json
-                 backend/package-lock.json
-                 frontend/package-lock.json
+
+         # Step 3: Clean install root dependencies
          - run: npm ci
-         - run: npm ci --prefix backend
+
+         # Step 4: Clean install frontend dependencies
          - run: npm ci --prefix frontend
-         - run: npm run format:check
+
+         # Step 5: Clean install backend dependencies
+         - run: npm ci --prefix backend
+
+         # Step 6: Run ESLint and Prettier checks on frontend and backend
          - run: npm run lint
+
+         # Step 7: Run all frontend and backend Jest tests
          - run: npm test
-         - run: npm --prefix frontend run build
+         - name: Build frontend
+           run: npm run build --prefix frontend
            env:
-              VITE_API_BASE_URL: http://127.0.0.1:3003
-              VITE_SUPABASE_URL: http://127.0.0.1:8083/supabase
-              VITE_SUPABASE_ANON_KEY: umami-local-fixture-anon
+              VITE_SUPABASE_URL: https://example.supabase.co
+              VITE_SUPABASE_ANON_KEY: public-test-key
 
    container-smoke:
       runs-on: ubuntu-latest
