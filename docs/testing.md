@@ -57,7 +57,15 @@ project regularly. The current repository has no database migrations or
 repeatable seed for the full app schema; the isolated project and its fixtures
 must be prepared before full E2E can be considered verified.
 
-After the environment is configured, run **Isolated full E2E** from the Actions
-tab on `main`. The job refuses other branches. Keep privileged environment
-access restricted to trusted code. The PR workflow never references this
-environment.
+After the environment is configured and this workflow has reached `main`, run
+**Isolated full E2E** from the Actions tab. GitHub requires a manually
+triggered workflow file to exist on the default branch. Before merge, run the
+same Cypress specs locally against the isolated project: set the corresponding
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`,
+`SUPABASE_SECRET_KEY`, `TEST_EMAIL`, `TEST_PASSWORD`,
+`TEST_RESTAURANT_NAME`, `TEST_BOOKMARK_RESTAURANT_NAME`, and
+`TEST_FOLLOW_USER_NAME` environment variables; start `npm run backend:dev` and
+`npm run frontend:dev` in separate terminals; then run
+`npx cypress run --spec cypress/e2e/api-tests.cy.js,cypress/e2e/ui-tests.cy.js`.
+Do not put credentials in tracked files. The PR workflow never references the
+`e2e` environment or its secrets.
