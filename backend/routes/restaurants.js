@@ -1,4 +1,8 @@
 import express from "express";
+import {
+   requireAuth,
+   requireOwner,
+} from "../middleware/auth.js";
 import { supabase } from "../config/supabaseClient.js";
 import {
    Restaurant,
@@ -73,8 +77,12 @@ router.get("/bookmarks", async (req, res) => {
 });
 
 // Add a restaurant to bookmarks
-router.post("/bookmarks", async (req, res) => {
-   const { user_id, restaurant_id } = req.body;
+router.post("/bookmarks", requireAuth, async (req, res) => {
+   const { restaurant_id } = req.body;
+   if (!requireOwner(req, res, req.body.user_id)) {
+      return;
+   }
+   const user_id = req.authUser.id;
    try {
       const { data, error } = await supabase
          .from("bookmarks")
@@ -91,40 +99,50 @@ router.post("/bookmarks", async (req, res) => {
 });
 
 // Sync bookmarks
-router.post("/bookmarks/sync", async (req, res) => {
-   const { user_id, added, removed } = req.body;
-   try {
-      // Handle removals
-      if (removed && removed.length > 0) {
-         const { error } = await supabase
-            .from("bookmarks")
-            .delete()
-            .eq("user_id", user_id)
-            .in("restaurant_id", removed);
-         if (error) {
-            throw error;
-         }
+router.post(
+   "/bookmarks/sync",
+   requireAuth,
+   async (req, res) => {
+      const { added, removed } = req.body;
+      if (!requireOwner(req, res, req.body.user_id)) {
+         return;
       }
-
-      // Handle additions
-      if (added && added.length > 0) {
-         const rowsToAdd = added.map((rid) => ({
-            user_id,
-            restaurant_id: rid,
-         }));
-         const { error } = await supabase
-            .from("bookmarks")
-            .insert(rowsToAdd);
-         if (error) {
-            throw error;
+      const user_id = req.authUser.id;
+      try {
+         // Handle removals
+         if (removed && removed.length > 0) {
+            const { error } = await supabase
+               .from("bookmarks")
+               .delete()
+               .eq("user_id", user_id)
+               .in("restaurant_id", removed);
+            if (error) {
+               throw error;
+            }
          }
-      }
 
-      res.status(200).json({ message: "Sync successful" });
-   } catch (error) {
-      res.status(500).json({ error: error.message });
-   }
-});
+         // Handle additions
+         if (added && added.length > 0) {
+            const rowsToAdd = added.map((rid) => ({
+               user_id,
+               restaurant_id: rid,
+            }));
+            const { error } = await supabase
+               .from("bookmarks")
+               .insert(rowsToAdd);
+            if (error) {
+               throw error;
+            }
+         }
+
+         res.status(200).json({
+            message: "Sync successful",
+         });
+      } catch (error) {
+         res.status(500).json({ error: error.message });
+      }
+   },
+);
 
 // Get menu items by restaurant id
 router.get("/:id/menu", async (req, res) => {

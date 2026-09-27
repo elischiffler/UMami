@@ -23,6 +23,10 @@ import {
 } from "@phosphor-icons/react";
 import { useBookmarks } from "../hooks/useBookmarks";
 import { API_BASE_URL } from "../lib/api";
+import {
+   authenticatedFetch,
+   sessionFetch,
+} from "../lib/authenticatedFetch";
 import { parseRestaurantPathId } from "../lib/restaurantIds";
 
 // Helper to get Menu Item Photos
@@ -62,6 +66,7 @@ export default function Review() {
    });
    const {
       bookmarkedIds,
+      pendingIds,
       setBookmarkedIds,
       toggleBookmark,
    } = useBookmarks();
@@ -458,11 +463,8 @@ export default function Review() {
       if (!restaurantId) return;
 
       try {
-         let url = `${API_BASE_URL}/api/reviews?restaurant_id=${restaurantId}`;
-         if (CURRENT_USER_ID) {
-            url += `&current_user_id=${CURRENT_USER_ID}`;
-         }
-         const response = await fetch(url);
+         const url = `${API_BASE_URL}/api/reviews?restaurant_id=${restaurantId}`;
+         const response = await sessionFetch(url);
          if (response.ok) {
             const data = await response.json();
 
@@ -489,7 +491,7 @@ export default function Review() {
       } catch (error) {
          console.error("Failed to fetch reviews:", error);
       }
-   }, [restaurantId, CURRENT_USER_ID]);
+   }, [restaurantId]);
 
    // Fetches the restaurant's data
    const fetchRestaurant = useCallback(async () => {
@@ -582,7 +584,7 @@ export default function Review() {
    // Deletes a review from the backend and updates local state
    const handleDeleteReview = async (reviewId) => {
       try {
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/reviews/${reviewId}`,
             {
                method: "DELETE",
@@ -845,6 +847,7 @@ export default function Review() {
                   <button
                      className={`review__bookmarkBtn ${isBookmarked ? "is-bookmarked" : ""}`}
                      onClick={handleBookmarkToggle}
+                     disabled={pendingIds.has(restaurantId)}
                      aria-label={
                         isBookmarked
                            ? `Remove bookmark for ${restaurant.name}`

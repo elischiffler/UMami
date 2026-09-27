@@ -5,7 +5,7 @@ import {
    jest,
    beforeEach,
 } from "@jest/globals";
-import request from "supertest";
+import request from "./authenticatedRequest.js";
 import app from "../index.js";
 import { supabase } from "../config/supabaseClient.js";
 
@@ -24,8 +24,9 @@ describe("Notification Endpoints", () => {
       const mockNotification = {
          id: "b677be85-81db-4245-91ca-acb713bd5564",
          user_id: "c788cf96-92ec-5356-a2db-bdc824ce6675",
-         type: "like",
-         message: "Test message",
+         type: "profile_photo",
+         message:
+            "Don't forget to add a profile photo so others can recognize you!",
          related_id: null,
          is_read: false,
          created_at: "2023-01-01T00:00:00Z",
@@ -45,8 +46,7 @@ describe("Notification Endpoints", () => {
          .post("/api/notifications")
          .send({
             user_id: "c788cf96-92ec-5356-a2db-bdc824ce6675",
-            type: "like",
-            message: "Test message",
+            type: "profile_photo",
          });
 
       expect(res.statusCode).toBe(201);
@@ -120,14 +120,17 @@ describe("Notification Endpoints", () => {
          data: mockUpdated,
          error: null,
       });
-      const mockEq = jest
-         .fn()
-         .mockReturnValue({ select: mockSelect });
-      const mockUpdate = jest
-         .fn()
-         .mockReturnValue({ eq: mockEq });
+      const mockEq = jest.fn().mockReturnThis();
+      const mockUpdate = jest.fn().mockReturnValue({
+         eq: mockEq,
+         select: mockSelect,
+      });
 
-      supabase.from.mockReturnValue({ update: mockUpdate });
+      supabase.from.mockReturnValue({
+         update: mockUpdate,
+         eq: mockEq,
+         select: mockSelect,
+      });
 
       const res = await request(app).patch(
          "/api/notifications/b677be85-81db-4245-91ca-acb713bd5564/read",
@@ -158,12 +161,11 @@ describe("Notification Endpoints", () => {
 
    // endpoint test for deleting a notifcation
    it("DELETE /api/notifications/:id should delete notification", async () => {
-      const mockEq = jest
-         .fn()
-         .mockResolvedValue({ error: null });
-      const mockDelete = jest
-         .fn()
-         .mockReturnValue({ eq: mockEq });
+      const mockEq = jest.fn().mockReturnThis();
+      const mockDelete = jest.fn().mockReturnValue({
+         eq: mockEq,
+         then: (resolve) => resolve({ error: null }),
+      });
 
       supabase.from.mockReturnValue({ delete: mockDelete });
 
@@ -203,7 +205,7 @@ describe("Notification Endpoints", () => {
          });
       expect(res.statusCode).toBe(400);
       expect(res.body.error).toBe(
-         "user_id, type, and message are required",
+         "Unsupported notification type",
       );
    });
 
@@ -220,8 +222,7 @@ describe("Notification Endpoints", () => {
          .post("/api/notifications")
          .send({
             user_id: "c788cf96-92ec-5356-a2db-bdc824ce6675",
-            type: "like",
-            message: "Test message",
+            type: "profile_photo",
          });
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Insert Error" });
@@ -294,9 +295,11 @@ describe("Notification Endpoints", () => {
    it("DELETE /api/notifications/:id should handle errors", async () => {
       supabase.from.mockReturnValue({
          delete: jest.fn().mockReturnThis(),
-         eq: jest.fn().mockResolvedValue({
-            error: { message: "Delete One Error" },
-         }),
+         eq: jest.fn().mockReturnThis(),
+         then: (resolve) =>
+            resolve({
+               error: { message: "Delete One Error" },
+            }),
       });
 
       const res = await request(app).delete(

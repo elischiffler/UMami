@@ -12,6 +12,7 @@ import Modal from "../components/Modal.jsx";
 import ProfilePhotoPreviewModal from "../components/ProfilePhotoPreviewModal.jsx";
 import { uploadProfilePhoto } from "../lib/uploadPhoto";
 import { API_BASE_URL } from "../lib/api";
+import { authenticatedFetch } from "../lib/authenticatedFetch";
 import "./Restaurants.css";
 import { getIsOpenNow } from "../utils/getIsOpenNow";
 
@@ -34,6 +35,9 @@ function Restaurants({ restaurants: initialRestaurants }) {
    const [bookmarkedIds, setBookmarkedIds] = useState(
       new Set(),
    );
+   const pendingBookmarkRef = useRef(new Set());
+   const [pendingBookmarkIds, setPendingBookmarkIds] =
+      useState(new Set());
 
    // The current logged-in user's ID (from Supabase auth)
    const [userId, setUserId] = useState(null);
@@ -283,7 +287,7 @@ function Restaurants({ restaurants: initialRestaurants }) {
          );
 
          // Save the new avatar URL to the user's record in the database
-         await fetch(
+         await authenticatedFetch(
             `${API_BASE_URL}/api/users/${userId}`,
             {
                method: "PATCH",
@@ -335,7 +339,7 @@ function Restaurants({ restaurants: initialRestaurants }) {
 
          // Send a persistent notification reminding them to add a photo
          try {
-            const res = await fetch(
+            const res = await authenticatedFetch(
                `${API_BASE_URL}/api/notifications`,
                {
                   method: "POST",
@@ -345,9 +349,6 @@ function Restaurants({ restaurants: initialRestaurants }) {
                   body: JSON.stringify({
                      user_id: userId,
                      type: "profile_photo",
-                     message:
-                        "Don't forget to add a profile photo so others can recognize you!",
-                     related_id: null,
                   }),
                },
             );
@@ -376,6 +377,12 @@ function Restaurants({ restaurants: initialRestaurants }) {
          setError("You must be signed in to bookmark.");
          return;
       }
+      if (pendingBookmarkRef.current.has(restaurantId))
+         return;
+      pendingBookmarkRef.current.add(restaurantId);
+      setPendingBookmarkIds(
+         new Set(pendingBookmarkRef.current),
+      );
 
       const wasBookmarked = bookmarkedIds.has(restaurantId);
 
@@ -391,24 +398,26 @@ function Restaurants({ restaurants: initialRestaurants }) {
       });
 
       try {
-         if (wasBookmarked) {
-            // Remove the bookmark from Supabase
-            const { error } = await supabase
-               .from("bookmarks")
-               .delete()
-               .eq("user_id", userId)
-               .eq("restaurant_id", restaurantId);
-            if (error) throw error;
-         } else {
-            // Add a new bookmark to Supabase
-            const { error } = await supabase
-               .from("bookmarks")
-               .insert({
+         const response = await authenticatedFetch(
+            `${API_BASE_URL}/api/restaurants/bookmarks/sync`,
+            {
+               method: "POST",
+               headers: {
+                  "Content-Type": "application/json",
+               },
+               body: JSON.stringify({
                   user_id: userId,
-                  restaurant_id: restaurantId,
-               });
-            if (error) throw error;
-         }
+                  added: wasBookmarked
+                     ? []
+                     : [restaurantId],
+                  removed: wasBookmarked
+                     ? [restaurantId]
+                     : [],
+               }),
+            },
+         );
+         if (!response.ok)
+            throw new Error("Failed to update bookmark");
       } catch (err) {
          console.error("Error updating bookmark:", err);
          // Revert the optimistic update if the API call failed
@@ -423,6 +432,11 @@ function Restaurants({ restaurants: initialRestaurants }) {
          });
          setError(
             err.message || "Failed to update bookmark.",
+         );
+      } finally {
+         pendingBookmarkRef.current.delete(restaurantId);
+         setPendingBookmarkIds(
+            new Set(pendingBookmarkRef.current),
          );
       }
    };
@@ -705,6 +719,9 @@ function Restaurants({ restaurants: initialRestaurants }) {
                         <RestaurantCard
                            restaurant={restaurant}
                            isBookmarked={bookmarkedIds.has(
+                              restaurant.id,
+                           )}
+                           disabled={pendingBookmarkIds.has(
                               restaurant.id,
                            )}
                            onToggle={() =>

@@ -7,6 +7,19 @@ import {
 import "@testing-library/jest-dom";
 import WriteReview from "../components/WriteReview.jsx";
 
+jest.mock("../lib/supabase", () => ({
+   supabase: {
+      auth: {
+         getSession: jest.fn().mockResolvedValue({
+            data: {
+               session: { access_token: "fixture-token" },
+            },
+            error: null,
+         }),
+      },
+   },
+}));
+
 // Mock upload helper to prevent real network requests during tests
 jest.mock("../lib/uploadPhoto", () => ({
    uploadReviewPhoto: jest.fn(() =>
@@ -266,6 +279,7 @@ describe("WriteReview component", () => {
                method: "POST",
                headers: {
                   "Content-Type": "application/json",
+                  Authorization: "Bearer fixture-token",
                },
             }),
          );

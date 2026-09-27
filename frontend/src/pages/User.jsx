@@ -19,6 +19,10 @@ import {
 } from "../lib/uploadPhoto";
 import "./User.css";
 import { API_BASE_URL } from "../lib/api";
+import {
+   authenticatedFetch,
+   sessionFetch,
+} from "../lib/authenticatedFetch";
 
 function User({
    session,
@@ -62,17 +66,12 @@ function User({
    );
    const {
       bookmarkedIds,
+      pendingIds: pendingBookmarkIds,
       setBookmarkedIds,
       toggleBookmark,
    } = useBookmarks(
       initialRestaurants?.map((r) => r.id) || [],
    );
-
-   const originalBookmarkedIdsRef = useRef(
-      new Set(initialRestaurants?.map((r) => r.id) || []),
-   );
-
-   const bookmarkedIdsRef = useRef(new Set());
 
    const initialFollowingArray = initialFollowing ?? [];
    const initialFollowingIdsInit = new Set(
@@ -86,12 +85,11 @@ function User({
    const [followingIds, setFollowingIds] = useState(
       () => new Set(initialFollowingIdsInit),
    );
-
-   const originalFollowingIdsRef = useRef(
-      new Set(initialFollowingIdsInit),
+   const pendingFollowRef = useRef(new Set());
+   const [pendingFollowIds, setPendingFollowIds] = useState(
+      new Set(),
    );
-
-   const followingIdsRef = useRef(new Set());
+   const [actionError, setActionError] = useState("");
 
    const fileInputRef = useRef(null);
    const profilePhotoPreviewUrlRef = useRef("");
@@ -204,14 +202,6 @@ function User({
    }, []);
 
    useEffect(() => {
-      bookmarkedIdsRef.current = bookmarkedIds;
-   }, [bookmarkedIds]);
-
-   useEffect(() => {
-      followingIdsRef.current = followingIds;
-   }, [followingIds]);
-
-   useEffect(() => {
       if (
          initialUser ||
          initialReviews ||
@@ -295,7 +285,7 @@ function User({
                bookmarksResponse,
                followingResponse,
             ] = await Promise.all([
-               fetch(
+               sessionFetch(
                   `${API_BASE_URL}/api/reviews?user_id=${profileUser.id}`,
                ),
                fetch(
@@ -369,9 +359,6 @@ function User({
                );
 
                setBookmarkedIds(ids);
-               originalBookmarkedIdsRef.current = new Set(
-                  ids,
-               );
             } else {
                setRestaurants([]);
                setBookmarkedIds(new Set());
@@ -388,9 +375,6 @@ function User({
                );
 
                setFollowingIds(ids);
-               originalFollowingIdsRef.current = new Set(
-                  ids,
-               );
             } else {
                setFollowing([]);
                setFollowingIds(new Set());
@@ -412,130 +396,85 @@ function User({
       setBookmarkedIds,
    ]);
 
-   useEffect(() => {
-      const syncBookmarks = () => {
-         if (!isOwnProfile) return;
-
-         const original = originalBookmarkedIdsRef.current;
-         const current = bookmarkedIdsRef.current;
-         const userIdToSync = user.id;
-
-         if (!userIdToSync) return;
-
-         const added = [...current].filter(
-            (id) => !original.has(id),
+   const handleBookmarkToggle = async (restaurantId) => {
+      if (!isOwnProfile) return;
+      setActionError("");
+      const { error } = await toggleBookmark(
+         user.id,
+         restaurantId,
+      );
+      if (error)
+         setActionError(
+            error.message || "Failed to update bookmark",
          );
-         const removed = [...original].filter(
-            (id) => !current.has(id),
-         );
+   };
 
-         if (added.length === 0 && removed.length === 0)
-            return;
+   const handleFollowToggle = async (followedUserId) => {
+      if (!isOwnProfile || !user.id) return;
+      if (pendingFollowRef.current.has(followedUserId))
+         return;
+      pendingFollowRef.current.add(followedUserId);
+      setPendingFollowIds(
+         new Set(pendingFollowRef.current),
+      );
+      setActionError("");
+      const wasFollowing = followingIds.has(followedUserId);
 
-         fetch(
-            `${API_BASE_URL}/api/restaurants/bookmarks/sync`,
+      setFollowingIds((prev) => {
+         const next = new Set(prev);
+         if (wasFollowing) {
+            next.delete(followedUserId);
+         } else {
+            next.add(followedUserId);
+         }
+         return next;
+      });
+
+      try {
+         const response = await authenticatedFetch(
+            `${API_BASE_URL}/api/users/follows/sync`,
             {
                method: "POST",
                headers: {
                   "Content-Type": "application/json",
                },
                body: JSON.stringify({
-                  user_id: userIdToSync,
-                  added,
-                  removed,
+                  follower_id: user.id,
+                  added: wasFollowing
+                     ? []
+                     : [followedUserId],
+                  removed: wasFollowing
+                     ? [followedUserId]
+                     : [],
                }),
-               keepalive: true,
             },
          );
-      };
-
-      window.addEventListener(
-         "beforeunload",
-         syncBookmarks,
-      );
-
-      return () => {
-         window.removeEventListener(
-            "beforeunload",
-            syncBookmarks,
+         if (!response.ok)
+            throw new Error("Failed to update follow");
+      } catch (error) {
+         console.error("Error updating follow:", error);
+         setActionError(
+            error.message || "Failed to update follow",
          );
-         syncBookmarks();
-      };
-   }, [user.id, isOwnProfile]);
-
-   useEffect(() => {
-      const syncFollowing = () => {
-         if (!isOwnProfile) return;
-
-         const original = originalFollowingIdsRef.current;
-         const current = followingIdsRef.current;
-         const userIdToSync = user.id;
-
-         if (!userIdToSync) return;
-
-         const added = [...current].filter(
-            (id) => !original.has(id),
-         );
-         const removed = [...original].filter(
-            (id) => !current.has(id),
-         );
-
-         if (added.length === 0 && removed.length === 0)
-            return;
-
-         fetch(`${API_BASE_URL}/api/users/follows/sync`, {
-            method: "POST",
-            headers: {
-               "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-               follower_id: userIdToSync,
-               added,
-               removed,
-            }),
-            keepalive: true,
+         setFollowingIds((prev) => {
+            const next = new Set(prev);
+            if (wasFollowing) next.add(followedUserId);
+            else next.delete(followedUserId);
+            return next;
          });
-      };
-
-      window.addEventListener(
-         "beforeunload",
-         syncFollowing,
-      );
-
-      return () => {
-         window.removeEventListener(
-            "beforeunload",
-            syncFollowing,
+      } finally {
+         pendingFollowRef.current.delete(followedUserId);
+         setPendingFollowIds(
+            new Set(pendingFollowRef.current),
          );
-         syncFollowing();
-      };
-   }, [user.id, isOwnProfile]);
-
-   const handleBookmarkToggle = (restaurantId) => {
-      toggleBookmark(user.id, restaurantId, true);
-   };
-
-   const handleFollowToggle = (followedUserId) => {
-      if (!isOwnProfile) return;
-
-      setFollowingIds((prev) => {
-         const next = new Set(prev);
-
-         if (next.has(followedUserId)) {
-            next.delete(followedUserId);
-         } else {
-            next.add(followedUserId);
-         }
-
-         return next;
-      });
+      }
    };
 
    const handleDeleteReview = async (reviewId) => {
       if (!isOwnProfile) return;
 
       try {
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/reviews/${reviewId}`,
             {
                method: "DELETE",
@@ -626,7 +565,7 @@ function User({
             user.id,
          );
 
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/users/${user.id}`,
             {
                method: "PATCH",
@@ -688,7 +627,7 @@ function User({
             user.id,
          );
 
-         const response = await fetch(
+         const response = await authenticatedFetch(
             `${API_BASE_URL}/api/users/${user.id}`,
             {
                method: "PATCH",
@@ -751,6 +690,7 @@ function User({
 
    return (
       <div className="user-page">
+         {actionError && <p role="alert">{actionError}</p>}
          <ProfilePhotoPreviewModal
             open={
                isPhotoModalOpen ||
@@ -1076,6 +1016,9 @@ function User({
                                        isBookmarked={bookmarkedIds.has(
                                           restaurant.id,
                                        )}
+                                       disabled={pendingBookmarkIds.has(
+                                          restaurant.id,
+                                       )}
                                        onToggle={
                                           isOwnProfile
                                              ? () =>
@@ -1163,6 +1106,9 @@ function User({
                                           followedUser
                                        }
                                        isFollowing={followingIds.has(
+                                          followedUser.id,
+                                       )}
+                                       pending={pendingFollowIds.has(
                                           followedUser.id,
                                        )}
                                        onToggleFollow={

@@ -2,6 +2,10 @@ import express from "express";
 import { supabase } from "../config/supabaseClient.js";
 import { Review } from "../models/reviewModel.js";
 import { z } from "zod";
+import {
+   requireAuth,
+   requireOwner,
+} from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -15,8 +19,8 @@ const router = express.Router();
 // ─────────────────────────────────────────────
 router.get("/", async (req, res) => {
    try {
-      const { user_id, restaurant_id, current_user_id } =
-         req.query;
+      const { user_id, restaurant_id } = req.query;
+      const current_user_id = req.authUser?.id;
 
       // Start query — also join the users table to get
       // name, avatar, and verified status for each review
@@ -87,10 +91,12 @@ router.get("/", async (req, res) => {
 // photo_urls is an array of Supabase Storage public URLs
 // uploaded before this call is made (via /api/uploads/review-photo)
 // ─────────────────────────────────────────────
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
    try {
+      if (!requireOwner(req, res, req.body.user_id)) {
+         return;
+      }
       const {
-         user_id,
          restaurant_id,
          rating,
          comment,
@@ -101,7 +107,6 @@ router.post("/", async (req, res) => {
       // Basic validation — user, restaurant, and rating are required
       if (
          !restaurant_id ||
-         !user_id ||
          rating === undefined ||
          rating === null
       ) {
@@ -115,7 +120,7 @@ router.post("/", async (req, res) => {
          .from("reviews")
          .insert([
             {
-               user_id,
+               user_id: req.authUser.id,
                restaurant_id,
                rating,
                comment,
@@ -150,93 +155,92 @@ router.post("/", async (req, res) => {
 // The DB trigger automatically updates helpful_count on the review
 // Body: { user_id }
 // ─────────────────────────────────────────────
-router.post("/:id/helpful", async (req, res) => {
-   try {
-      const { id } = req.params;
-      const { user_id } = req.body;
+router.post(
+   "/:id/helpful",
+   requireAuth,
+   async (req, res) => {
+      try {
+         if (!requireOwner(req, res, req.body.user_id)) {
+            return;
+         }
+         const { id } = req.params;
+         const user_id = req.authUser.id;
 
-      if (!user_id) {
-         return res
-            .status(400)
-            .json({ error: "user_id is required" });
-      }
+         // Check if this user has already voted on this review
+         const { data: existingVote, error: checkError } =
+            await supabase
+               .from("review_helpful_votes")
+               .select("*")
+               .eq("review_id", id)
+               .eq("user_id", user_id)
+               .maybeSingle();
 
-      // Check if this user has already voted on this review
-      const { data: existingVote, error: checkError } =
-         await supabase
-            .from("review_helpful_votes")
-            .select("*")
-            .eq("review_id", id)
-            .eq("user_id", user_id)
-            .maybeSingle();
-
-      if (checkError) {
-         throw checkError;
-      }
-
-      // Track whether user ends up having voted after this toggle
-      let hasVoted = true;
-
-      if (existingVote) {
-         // User already voted — remove the vote (toggle off)
-         const { error: deleteError } = await supabase
-            .from("review_helpful_votes")
-            .delete()
-            .eq("review_id", id)
-            .eq("user_id", user_id);
-
-         if (deleteError) {
-            throw deleteError;
+         if (checkError) {
+            throw checkError;
          }
 
-         hasVoted = false;
-      } else {
-         // User hasn't voted yet — add the vote (toggle on)
-         const { error: insertError } = await supabase
-            .from("review_helpful_votes")
-            .insert([{ review_id: id, user_id }]);
+         // Track whether user ends up having voted after this toggle
+         let hasVoted = true;
 
-         if (insertError) {
-            throw insertError;
+         if (existingVote) {
+            // User already voted — remove the vote (toggle off)
+            const { error: deleteError } = await supabase
+               .from("review_helpful_votes")
+               .delete()
+               .eq("review_id", id)
+               .eq("user_id", user_id);
+
+            if (deleteError) {
+               throw deleteError;
+            }
+
+            hasVoted = false;
+         } else {
+            // User hasn't voted yet — add the vote (toggle on)
+            const { error: insertError } = await supabase
+               .from("review_helpful_votes")
+               .insert([{ review_id: id, user_id }]);
+
+            if (insertError) {
+               throw insertError;
+            }
          }
+
+         // Fetch the updated review after the vote change
+         // The DB trigger handles recalculating helpful_count automatically
+         const { data: updatedReview, error: fetchError } =
+            await supabase
+               .from("reviews")
+               .select()
+               .eq("id", id)
+               .single();
+
+         if (fetchError) {
+            throw fetchError;
+         }
+
+         // Return the updated review with the current vote state
+         res.status(200).json({
+            ...updatedReview,
+            has_voted_helpful: hasVoted,
+         });
+      } catch (error) {
+         res.status(500).json({
+            error:
+               error?.message || "Internal Server Error",
+         });
       }
-
-      // Fetch the updated review after the vote change
-      // The DB trigger handles recalculating helpful_count automatically
-      const { data: updatedReview, error: fetchError } =
-         await supabase
-            .from("reviews")
-            .select()
-            .eq("id", id)
-            .single();
-
-      if (fetchError) {
-         throw fetchError;
-      }
-
-      // Return the updated review with the current vote state
-      res.status(200).json({
-         ...updatedReview,
-         has_voted_helpful: hasVoted,
-      });
-   } catch (error) {
-      res.status(500).json({
-         error: error?.message || "Internal Server Error",
-      });
-   }
-});
+   },
+);
 
 // Delete a review
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, async (req, res) => {
    try {
-      const { id } = req.params;
-      const { user_id } = req.body;
-
-      if (!user_id) {
-         return res
-            .status(400)
-            .json({ error: "user_id is required" });
+      if (!requireOwner(req, res, req.body.user_id)) {
+         return;
       }
+      const { id } = req.params;
+      const user_id = req.authUser.id;
 
       // Check if the review exists and get its owner
       const { data: review, error: fetchError } =
@@ -256,17 +260,16 @@ router.delete("/:id", async (req, res) => {
             .json({ error: "Review not found" });
       }
 
-      if (review.user_id !== user_id) {
-         return res.status(403).json({
-            error: "Unauthorized to delete this review",
-         });
+      if (!requireOwner(req, res, review.user_id)) {
+         return;
       }
 
       // Delete the review
       const { error: deleteError } = await supabase
          .from("reviews")
          .delete()
-         .eq("id", id);
+         .eq("id", id)
+         .eq("user_id", user_id);
       if (deleteError) {
          throw deleteError;
       }

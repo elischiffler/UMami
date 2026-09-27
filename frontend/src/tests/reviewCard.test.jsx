@@ -3,6 +3,19 @@ import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import ReviewCard from "../components/ReviewCard";
 
+jest.mock("../lib/supabase", () => ({
+   supabase: {
+      auth: {
+         getSession: jest.fn().mockResolvedValue({
+            data: {
+               session: { access_token: "fixture-token" },
+            },
+            error: null,
+         }),
+      },
+   },
+}));
+
 jest.mock("../components/UserName.jsx", () => {
    return function MockUserName({ name, is_verified }) {
       return (

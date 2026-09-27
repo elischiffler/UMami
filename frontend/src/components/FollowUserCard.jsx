@@ -7,6 +7,7 @@ function FollowedUserCard({
    followedUser,
    isFollowing,
    onToggleFollow,
+   pending = false,
 }) {
    const navigate = useNavigate();
 
@@ -42,6 +43,7 @@ function FollowedUserCard({
             {onToggleFollow && (
                <button
                   className={`follow-button ${isFollowing ? "following" : ""}`}
+                  disabled={pending}
                   onClick={(e) => {
                      e.stopPropagation();
                      onToggleFollow();

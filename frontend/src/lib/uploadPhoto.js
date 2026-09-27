@@ -1,10 +1,11 @@
 import { API_BASE_URL } from "./api";
+import { authenticatedFetch } from "./authenticatedFetch";
 
 export async function uploadReviewPhoto(file) {
    const formData = new FormData();
    formData.append("file", file);
 
-   const res = await fetch(
+   const res = await authenticatedFetch(
       `${API_BASE_URL}/api/uploads/review-photo`,
       {
          method: "POST",
@@ -27,7 +28,7 @@ export async function uploadProfilePhoto(file, userId) {
    formData.append("file", file);
    if (userId) formData.append("user_id", userId);
 
-   const res = await fetch(
+   const res = await authenticatedFetch(
       `${API_BASE_URL}/api/uploads/profile-photo`,
       {
          method: "POST",
@@ -46,7 +47,7 @@ export async function uploadProfilePhoto(file, userId) {
 
 // Removes a profile photo from storage and reverts to default avatar
 export async function removeProfilePhoto(userId) {
-   const res = await fetch(
+   const res = await authenticatedFetch(
       `${API_BASE_URL}/api/uploads/profile-photo/${userId}`,
       {
          method: "DELETE",

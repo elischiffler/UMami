@@ -7,6 +7,7 @@ import restaurantsRouter from "./routes/restaurants.js";
 import notificationsRouter from "./routes/notifications.js";
 import { supabase } from "./config/supabaseClient.js";
 import uploadsRouter from "./routes/uploads.js";
+import { optionalAuth } from "./middleware/auth.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -34,6 +35,7 @@ app.use(
 app.use(express.json());
 
 // Routes
+app.use("/api", optionalAuth);
 app.use("/api/reviews", reviewsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/restaurants", restaurantsRouter);
