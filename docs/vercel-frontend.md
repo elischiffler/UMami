@@ -35,3 +35,6 @@ remove or change only the `umami` DNS record.
 
 The API, scheduled menu scrapes, Supabase database, Auth, and Storage are
 separate services. Moving this frontend does not migrate those workloads.
+The retained Azure deployment workflows run only in `Calpoly-Yelp/UMami`,
+which owns their deployment credentials; pushes to this personal fork cannot
+deploy the old organization's Azure apps.
