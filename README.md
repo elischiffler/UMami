@@ -16,21 +16,19 @@ Check with `npm run format:check`, `npm run lint`, `npm test`, `npm --prefix fro
 
 ### Live App
 
-🌐 [UMami](https://thankful-hill-0f3846d10.7.azurestaticapps.net)
+🌐 [UMami](https://umami.elischiffler.dev/)
 
-The personal fork is staging the frontend on Vercel. The Azure URL above
-remains the live app until the Vercel build, API connection, and custom domain
-are verified. See [the Vercel frontend runbook](docs/vercel-frontend.md).
+The frontend is live on Vercel at this domain. The intended AWS API domain is
+`api.umami.elischiffler.dev`; its DNS, HTTPS route, and backend deployment are
+still pending. Until that cutover, the frontend API configuration may still use
+the legacy Azure backend. See [the Vercel frontend runbook](docs/vercel-frontend.md)
+and [AWS backend runbook](docs/aws-backend.md).
 
 ### CI/CD Status
 
-[![Frontend Deploy](https://img.shields.io/github/actions/workflow/status/Calpoly-Yelp/UMami/azure-static-web-apps-thankful-hill-0f3846d10.yml?style=for-the-badge&label=Frontend+Deploy&logo=microsoft-azure)](https://github.com/Calpoly-Yelp/UMami/actions/workflows/azure-static-web-apps-thankful-hill-0f3846d10.yml)
+[![Frontend Check](https://img.shields.io/github/actions/workflow/status/elischiffler/UMami/vercel-frontend-check.yml?style=for-the-badge&label=Frontend+Check&logo=vercel)](https://github.com/elischiffler/UMami/actions/workflows/vercel-frontend-check.yml)
 
-[![Backend Deploy](https://img.shields.io/github/actions/workflow/status/Calpoly-Yelp/UMami/main_umami-api-calpoly.yml?style=for-the-badge&label=Backend+Deploy&logo=microsoft-azure)](https://github.com/Calpoly-Yelp/UMami/actions/workflows/main_umami-api-calpoly.yml)
-
-[![CI Testing](https://img.shields.io/github/actions/workflow/status/Calpoly-Yelp/UMami/ci-testing.yml?style=for-the-badge&label=CI+Testing&logo=github)](https://github.com/Calpoly-Yelp/UMami/actions/workflows/ci-testing.yml)
-
-[![Live Tests](https://img.shields.io/github/actions/workflow/status/Calpoly-Yelp/UMami/live-tests.yml?style=for-the-badge&label=Live+Tests&logo=cypress)](https://github.com/Calpoly-Yelp/UMami/actions/workflows/live-tests.yml)
+[![CI Testing](https://img.shields.io/github/actions/workflow/status/elischiffler/UMami/ci-testing.yml?style=for-the-badge&label=CI+Testing&logo=github)](https://github.com/elischiffler/UMami/actions/workflows/ci-testing.yml)
 
 ## Running Testing:
 
