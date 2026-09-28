@@ -15,6 +15,11 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Map from "../components/Map.jsx";
+import { getCartoTileUrl } from "../lib/cartoConfig.js";
+
+jest.mock("../lib/cartoConfig.js", () => ({
+   getCartoTileUrl: jest.fn(),
+}));
 
 // Mock Leaflet to handle the L.icon call and prototype modification in the component
 jest.mock("leaflet", () => ({
@@ -29,10 +34,23 @@ jest.mock("leaflet", () => ({
 
 // Mock React Leaflet components since JSDOM doesn't support full map rendering
 jest.mock("react-leaflet", () => ({
-   MapContainer: ({ children }) => (
-      <div data-testid="map-container">{children}</div>
+   MapContainer: ({ children, attributionControl }) => (
+      <div
+         data-testid="map-container"
+         data-attribution-hidden={
+            attributionControl === false
+         }
+      >
+         {children}
+      </div>
    ),
-   TileLayer: () => <div data-testid="tile-layer" />,
+   TileLayer: ({ url, attribution }) => (
+      <div
+         data-testid="tile-layer"
+         data-url={url}
+         data-attribution={attribution}
+      />
+   ),
    Marker: ({ children, eventHandlers }) => (
       <div
          data-testid="marker"
@@ -77,6 +95,9 @@ describe("Map", () => {
 
    beforeEach(() => {
       mockOpen.mockClear();
+      getCartoTileUrl.mockReturnValue(
+         "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key=test-key",
+      );
    });
 
    test("renders the map container and marker", () => {
@@ -87,6 +108,52 @@ describe("Map", () => {
       expect(
          screen.getByTestId("marker"),
       ).toBeInTheDocument();
+   });
+
+   test("uses the configured CARTO tiles with provider attribution", () => {
+      render(<Map />);
+      expect(
+         screen.getByTestId("map-container"),
+      ).toHaveAttribute("data-attribution-hidden", "false");
+      expect(
+         screen.getByTestId("tile-layer"),
+      ).toHaveAttribute(
+         "data-url",
+         expect.stringContaining("?key=test-key"),
+      );
+      expect(
+         screen.getByTestId("tile-layer"),
+      ).toHaveAttribute(
+         "data-attribution",
+         expect.stringContaining("CARTO"),
+      );
+      expect(
+         screen.getByTestId("tile-layer"),
+      ).toHaveAttribute(
+         "data-attribution",
+         expect.stringContaining(
+            "OpenStreetMap contributors",
+         ),
+      );
+   });
+
+   test("shows directions without requesting tiles when the key is missing", () => {
+      getCartoTileUrl.mockReturnValueOnce(null);
+      render(<Map lat={35.3} lng={-120.6} />);
+      expect(
+         screen.queryByTestId("tile-layer"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(
+         "Map temporarily unavailable",
+      );
+      expect(
+         screen.getByRole("link", {
+            name: "Get directions",
+         }),
+      ).toHaveAttribute(
+         "href",
+         "https://www.google.com/maps/dir/?api=1&destination=35.3,-120.6",
+      );
    });
 
    test("displays the location name in the popup", () => {

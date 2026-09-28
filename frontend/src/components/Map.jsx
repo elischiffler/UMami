@@ -8,6 +8,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { getCartoTileUrl } from "../lib/cartoConfig.js";
 import "./Map.css";
 
 // Custom Umami Green SVG Marker
@@ -50,11 +51,30 @@ function Map({
    name = "Restaurant Location",
    markers = [],
 }) {
+   const tileUrl = getCartoTileUrl();
    // Fallback to a single marker if the array is empty (for backward compatibility)
    const displayMarkers =
       markers && markers.length > 0
          ? markers
          : [{ lat, lng, name }];
+
+   if (!tileUrl) {
+      return (
+         <div
+            className="map-wrapper map-unavailable"
+            role="status"
+         >
+            <span>Map temporarily unavailable</span>
+            <a
+               href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+               target="_blank"
+               rel="noopener noreferrer"
+            >
+               Get directions
+            </a>
+         </div>
+      );
+   }
 
    return (
       <div
@@ -66,7 +86,6 @@ function Map({
             zoom={15}
             scrollWheelZoom={true}
             className="leaflet-container"
-            attributionControl={false}
             style={{
                height: "100%",
                width: "100%",
@@ -74,8 +93,8 @@ function Map({
             }}
          >
             <TileLayer
-               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-               url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+               url={tileUrl}
             />
             <MapUpdater lat={lat} lng={lng} />
             {displayMarkers.map((marker, idx) => {

@@ -19,6 +19,16 @@ nested client routes to `index.html`.
 - `VITE_API_BASE_URL` can select the API endpoint for either environment. If it
   is unset in production, the existing Azure API URL remains the fallback.
   Keep that backend running until a replacement has passed functional checks.
+- `VITE_CARTO_BASEMAP_KEY` is the public CARTO Basemaps key used by Leaflet tile
+  requests. After the project owner obtains a key, set it in Vercel Production,
+  then deploy the checked, merged `main` commit; Vite embeds the value at build
+  time, so updating the variable does not change an existing deployment.
+  Restrict the key to `umami.elischiffler.dev` in CARTO's dashboard. A missing
+  or whitespace-only value shows a directions link instead of requesting
+  watermarked tiles. The key appears in browser tile URLs; it is not a backend
+  secret. Keep CARTO and OpenStreetMap attribution visible. Verify the live map
+  renders normal tiles and the browser uses keyed CARTO requests without
+  printing the key in logs or screenshots.
 
 ## Checks and cutover
 
