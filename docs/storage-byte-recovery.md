@@ -35,9 +35,10 @@ rows leaves broken photo URLs. The source project is active and not disposable.
   two buckets must exist with reviewed public/private flags and policies. Copy
   database schema/data and Storage bytes in the provider-supported sequence;
   reconcile metadata/object keys without overwriting source. Download each
-  target object and compare SHA-256 with the exported manifest, then check the
-  76-at-snapshot keys/bytes and app photo URLs. Count matching alone is not
-  sufficient. Keep source and restore identities distinct in evidence.
+  target object and compare SHA-256 with the exported manifest, then check its
+  keys, count, byte sizes, and app photo URLs. The historical 76-object count
+  is only a drift indicator. Count matching alone is not sufficient. Keep
+  source and restore identities distinct in evidence.
 
 Supabase CLI 2.118.0 exposes `storage cp --recursive` for project-scoped object
 downloads/uploads and `db dump` for logical database export. Inspect current
@@ -57,7 +58,14 @@ the approved target and current CLI before the live export begins.
    access. The four-table RLS-disabled public-role exposure described in issue
    #7 is temporarily accepted only through 2026-10-04. That exception does not
    prove ownership or Storage security, and these gates remain blocked until
-   the isolated-target checks pass.
+   the isolated-target checks pass. Record each bucket's reviewed access mode
+   and observed direct Storage results before declaring a pass. Both source
+   buckets are public, so the expected restored behavior for both
+   `profile-photos` and `review-photos` is successful owner, other-user, and
+   anonymous reads of a known object, while other-user and anonymous uploads
+   and deletes are denied. Owner upload and delete must succeed. A decision to
+   make either bucket private requires revising these expected outcomes before
+   the rehearsal.
 2. Run the real restaurant and menu scraper against the approved isolated
    destination, then rerun both. Assert stable restaurant/menu keys and counts,
    no duplicate rows, worker success state, and recovery after an interrupted
