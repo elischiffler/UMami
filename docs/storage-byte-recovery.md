@@ -51,9 +51,13 @@ the approved target and current CLI before the live export begins.
 1. In the isolated target, create or designate two test Auth users. Test owner
    vs other-user reads and writes through the real app/API for reviews, follows,
    notifications, helpful votes, and profile/review photo upload and delete.
-   Record RLS/policy state; the four-table RLS-disabled public-role exposure is
-   temporarily accepted only through 2026-10-04 in issue #7. This exception
-   does not prove ownership or Storage security.
+   Record RLS/policy state. The AWS API ownership work in fork PR #8 is still a
+   separate draft and must be included in the tested app/API revision before
+   claiming those API checks pass; it does not resolve direct Supabase Data API
+   access. The four-table RLS-disabled public-role exposure described in issue
+   #7 is temporarily accepted only through 2026-10-04. That exception does not
+   prove ownership or Storage security, and these gates remain blocked until
+   the isolated-target checks pass.
 2. Run the real restaurant and menu scraper against the approved isolated
    destination, then rerun both. Assert stable restaurant/menu keys and counts,
    no duplicate rows, worker success state, and recovery after an interrupted
