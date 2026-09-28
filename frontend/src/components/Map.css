@@ -8,6 +8,20 @@
    background: #f4f2ee; /* Soft background while tiles load */
 }
 
+.map-unavailable {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   color: #154734;
+}
+
+.map-unavailable a {
+   color: inherit;
+   font-weight: 700;
+}
+
 .leaflet-container {
    width: 100%;
    height: 100%;
