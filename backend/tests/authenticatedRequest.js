@@ -30,7 +30,8 @@ export default function authenticatedRequest(app) {
       const result = supertest(app)[method](path);
       const privateRead =
          method === "get" &&
-         path.startsWith("/api/notifications/");
+         (path.startsWith("/api/notifications/") ||
+            path === "/api/restaurants/bookmarks");
       if (method !== "get" || privateRead) {
          const pathId = path.match(
             /^\/api\/(?:users|notifications|uploads\/profile-photo)\/([^/?]+)/,

@@ -27,46 +27,10 @@ describe("App/Index Routes", () => {
       ).toBe("https://umami.elischiffler.dev");
    });
 
-   it("GET /test-supabase should return success on valid connection", async () => {
-      supabase.from.mockReturnValue({
-         select: jest.fn().mockReturnThis(),
-         limit: jest.fn().mockResolvedValue({
-            data: [{ id: 1 }],
-            error: null,
-         }),
-      });
-
+   it("never exposes the database diagnostic route", async () => {
       const res = await request(app).get("/test-supabase");
-      expect(res.statusCode).toBe(200);
-      expect(res.body.status).toBe("Connected!");
-   });
-
-   it("does not expose the database diagnostic route in production", async () => {
-      const previous = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
-      try {
-         const res = await request(app).get(
-            "/test-supabase",
-         );
-         expect(res.statusCode).toBe(404);
-         expect(supabase.from).not.toHaveBeenCalled();
-      } finally {
-         process.env.NODE_ENV = previous;
-      }
-   });
-
-   it("GET /test-supabase should return 500 on db error", async () => {
-      supabase.from.mockReturnValue({
-         select: jest.fn().mockReturnThis(),
-         limit: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: "Connection failed" },
-         }),
-      });
-
-      const res = await request(app).get("/test-supabase");
-      expect(res.statusCode).toBe(500);
-      expect(res.body.error).toBe("Connection failed");
+      expect(res.statusCode).toBe(404);
+      expect(supabase.from).not.toHaveBeenCalled();
    });
 
    it("GET / should return API running status", async () => {
