@@ -43,23 +43,6 @@ app.use("/api/restaurants", restaurantsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/uploads", uploadsRouter);
 
-// Temporary debug route to verify Supabase connection is working
-app.get("/test-supabase", async (req, res) => {
-   if (process.env.NODE_ENV === "production") {
-      return res.sendStatus(404);
-   }
-   const { data, error } = await supabase
-      .from("restaurants")
-      .select("*")
-      .limit(1);
-
-   if (error) {
-      return res.status(500).json({ error: error.message });
-   }
-
-   return res.json({ status: "Connected!", data });
-});
-
 // Health check for uptime monitoring
 app.get("/health", (req, res) => {
    res.json({ ok: true });
@@ -92,9 +75,6 @@ if (process.env.NODE_ENV !== "test") {
       operationalEvent("info", "API listening");
       console.log(
          `Server is alive on http://localhost:${PORT}`,
-      );
-      console.log(
-         `Try visiting http://localhost:${PORT}/test-supabase`,
       );
    });
    const stop = () => {

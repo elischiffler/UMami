@@ -6,6 +6,7 @@ import {
    beforeEach,
 } from "@jest/globals";
 import request from "./authenticatedRequest.js";
+import supertest from "supertest";
 import app from "../index.js";
 import { supabase } from "../config/supabaseClient.js";
 
@@ -549,6 +550,7 @@ describe("Restaurant Endpoints", () => {
             avg_rating: 4.0,
          },
       ];
+      const restaurantSelect = jest.fn().mockReturnThis();
 
       supabase.from.mockImplementation((table) => {
          if (table === "bookmarks") {
@@ -563,7 +565,7 @@ describe("Restaurant Endpoints", () => {
 
          if (table === "restaurants") {
             return {
-               select: jest.fn().mockReturnThis(),
+               select: restaurantSelect,
                in: jest.fn().mockResolvedValue({
                   data: mockRestaurants,
                   error: null,
@@ -581,6 +583,9 @@ describe("Restaurant Endpoints", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.length).toBe(2);
       expect(res.body[0].name).toBe("Restaurant A");
+      expect(restaurantSelect).toHaveBeenCalledWith(
+         "id,name,location,image_urls,avg_rating",
+      );
    });
 
    it("GET /api/restaurants/bookmarks/:userId should handle errors", async () => {
@@ -599,18 +604,27 @@ describe("Restaurant Endpoints", () => {
       expect(res.statusCode).toBe(500);
    });
 
-   it("GET /api/restaurants/bookmarks should return all bookmarks", async () => {
+   it("GET /api/restaurants/bookmarks requires authentication", async () => {
+      const res = await supertest(app).get(
+         "/api/restaurants/bookmarks",
+      );
+      expect(res.statusCode).toBe(401);
+      expect(supabase.from).not.toHaveBeenCalled();
+   });
+
+   it("GET /api/restaurants/bookmarks returns only the signed-in user's bookmarks", async () => {
+      const eq = jest.fn().mockResolvedValue({
+         data: [
+            {
+               user_id:
+                  "b677be85-81db-4245-91ca-acb713bd5564",
+               restaurant_id: 101,
+            },
+         ],
+         error: null,
+      });
       supabase.from.mockReturnValue({
-         select: jest.fn().mockResolvedValue({
-            data: [
-               {
-                  user_id:
-                     "b677be85-81db-4245-91ca-acb713bd5564",
-                  restaurant_id: 101,
-               },
-            ],
-            error: null,
-         }),
+         select: jest.fn().mockReturnValue({ eq }),
       });
 
       const res = await request(app).get(
@@ -621,13 +635,19 @@ describe("Restaurant Endpoints", () => {
       expect(res.body[0].user_id).toBe(
          "b677be85-81db-4245-91ca-acb713bd5564",
       );
+      expect(eq).toHaveBeenCalledWith(
+         "user_id",
+         "b677be85-81db-4245-91ca-acb713bd5564",
+      );
    });
 
    it("GET /api/restaurants/bookmarks should handle errors", async () => {
       supabase.from.mockReturnValue({
-         select: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: "Fetch Error" },
+         select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+               data: null,
+               error: { message: "Fetch Error" },
+            }),
          }),
       });
 

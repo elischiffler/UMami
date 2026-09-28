@@ -52,7 +52,7 @@ router.get("/bookmarks/:userId", async (req, res) => {
       // Step 2: Use those restaurant ids to fetch the restaurant object
       const { data: restaurants } = await supabase
          .from("restaurants")
-         .select("*")
+         .select("id,name,location,image_urls,avg_rating")
          .in("id", restaurantIds);
 
       res.status(200).json(restaurants);
@@ -61,12 +61,17 @@ router.get("/bookmarks/:userId", async (req, res) => {
    }
 });
 
-// Get all bookmarked restaurants
-router.get("/bookmarks", async (req, res) => {
+// Get the signed-in user's bookmarks
+router.get("/bookmarks", requireAuth, async (req, res) => {
    try {
-      const { data } = await supabase
+      const { data, error } = await supabase
          .from("bookmarks")
-         .select("*");
+         .select("*")
+         .eq("user_id", req.authUser.id);
+
+      if (error) {
+         throw error;
+      }
 
       const validatedData = z.array(Bookmark).parse(data);
 
