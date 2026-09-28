@@ -93,7 +93,7 @@ function Map({
             }}
          >
             <TileLayer
-               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
                url={tileUrl}
             />
             <MapUpdater lat={lat} lng={lng} />

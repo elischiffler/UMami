@@ -127,6 +127,14 @@ describe("Map", () => {
          "data-attribution",
          expect.stringContaining("CARTO"),
       );
+      expect(
+         screen.getByTestId("tile-layer"),
+      ).toHaveAttribute(
+         "data-attribution",
+         expect.stringContaining(
+            "OpenStreetMap contributors",
+         ),
+      );
    });
 
    test("shows directions without requesting tiles when the key is missing", () => {
