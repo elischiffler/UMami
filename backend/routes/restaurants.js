@@ -52,7 +52,7 @@ router.get("/bookmarks/:userId", async (req, res) => {
       // Step 2: Use those restaurant ids to fetch the restaurant object
       const { data: restaurants } = await supabase
          .from("restaurants")
-         .select("*")
+         .select("id,name,location,image_urls,avg_rating")
          .in("id", restaurantIds);
 
       res.status(200).json(restaurants);

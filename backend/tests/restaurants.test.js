@@ -550,6 +550,7 @@ describe("Restaurant Endpoints", () => {
             avg_rating: 4.0,
          },
       ];
+      const restaurantSelect = jest.fn().mockReturnThis();
 
       supabase.from.mockImplementation((table) => {
          if (table === "bookmarks") {
@@ -564,7 +565,7 @@ describe("Restaurant Endpoints", () => {
 
          if (table === "restaurants") {
             return {
-               select: jest.fn().mockReturnThis(),
+               select: restaurantSelect,
                in: jest.fn().mockResolvedValue({
                   data: mockRestaurants,
                   error: null,
@@ -582,6 +583,9 @@ describe("Restaurant Endpoints", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.length).toBe(2);
       expect(res.body[0].name).toBe("Restaurant A");
+      expect(restaurantSelect).toHaveBeenCalledWith(
+         "id,name,location,image_urls,avg_rating",
+      );
    });
 
    it("GET /api/restaurants/bookmarks/:userId should handle errors", async () => {
