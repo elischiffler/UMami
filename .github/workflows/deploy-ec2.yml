@@ -2,7 +2,7 @@ name: Deploy EC2
 
 on:
    workflow_run:
-      workflows: ["CI Testing"]
+      workflows: ["CI Testing", "Browser smoke"]
       types: [completed]
       branches: [main]
    workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
            id: checked
            env:
               GH_TOKEN: ${{ github.token }}
-              CI_WORKFLOWS: '["CI Testing"]'
+              CI_WORKFLOWS: '["CI Testing", "Browser smoke"]'
            run: python3 scripts/check_deployment.py
          - name: Configure verified SSH access
            env:
