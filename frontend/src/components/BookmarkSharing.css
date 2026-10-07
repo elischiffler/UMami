@@ -1,0 +1,39 @@
+.bookmark-sharing {
+   margin: 8px 0 20px;
+   max-width: 100%;
+   font-size: 14px;
+}
+.bookmark-sharing-actions,
+.bookmark-link {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 8px;
+}
+.bookmark-sharing button {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 6px;
+   min-height: 36px;
+   border: 1px solid #7d8981;
+   border-radius: 4px;
+   background: var(--color-bg-page, #fff);
+   color: var(--color-text, #222);
+   padding: 6px 10px;
+   cursor: pointer;
+}
+.bookmark-sharing button:disabled {
+   opacity: 0.5;
+   cursor: default;
+}
+.bookmark-link input {
+   flex: 1 1 180px;
+   min-width: 0;
+   height: 36px;
+   border: 1px solid #7d8981;
+   border-radius: 4px;
+   padding: 0 8px;
+   color: var(--color-text, #222);
+   background: var(--color-bg-page, #fff);
+}

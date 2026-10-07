@@ -32,4 +32,5 @@ skills-lock.json
 
 # Local Vercel project link
 .vercel/
+supabase/.temp/
 backend/.env.production

@@ -5,6 +5,7 @@
    "main": "index.js",
    "scripts": {
       "test": "npm run frontend:test && npm run backend:test",
+      "test:rls": "node scripts/test-rls.mjs",
       "frontend:test": "npm --prefix frontend run test -- --watchAll=false",
       "backend:test": "npm --prefix backend run test -- --watchAll=false",
       "test:coverage": "npm run frontend:test:coverage && npm run backend:test:coverage && node update-coverage.js",

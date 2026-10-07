@@ -13,6 +13,15 @@ on:
       branches: [main, chore/docker-local-pilot]
 
 jobs:
+   rls:
+      runs-on: ubuntu-latest
+      steps:
+         - uses: actions/checkout@v4
+         - uses: actions/setup-node@v4
+           with:
+              node-version: 24
+         - run: npm run test:rls
+
    build:
       runs-on: ubuntu-latest
 
@@ -36,6 +45,7 @@ jobs:
 
          # Step 6: Run ESLint and Prettier checks on frontend and backend
          - run: npm run lint
+         - run: npm run format:check
 
          # Step 7: Run all frontend and backend Jest tests
          - run: npm test

@@ -159,12 +159,64 @@ await expectStatus(
    200,
 );
 const bookmarked = await expectStatus(
-   "public bookmarks",
+   "owner bookmarks",
    `${api}/api/restaurants/bookmarks/${ownerId}`,
-   {},
+   { headers: auth },
    200,
 );
 assert.equal((await bookmarked.json()).length, 1);
+await expectStatus(
+   "anonymous bookmarks denied",
+   `${api}/api/restaurants/bookmarks/${ownerId}`,
+   {},
+   401,
+);
+await expectStatus(
+   "cross-user bookmarks denied",
+   `${api}/api/restaurants/bookmarks/${otherId}`,
+   { headers: auth },
+   403,
+);
+const shareResponse = await expectStatus(
+   "create owner share",
+   `${api}/api/bookmark-shares`,
+   json({}, auth),
+   201,
+);
+const share = await shareResponse.json();
+assert.match(share.token, /^[A-Za-z0-9_-]{43}$/);
+const sharedBookmarks = await expectStatus(
+   "anonymous capability read",
+   `${api}/api/bookmark-shares/view`,
+   json({ token: share.token }),
+   200,
+);
+assert.equal((await sharedBookmarks.json()).length, 1);
+const replacementResponse = await expectStatus(
+   "replace owner share",
+   `${api}/api/bookmark-shares`,
+   json({}, auth),
+   201,
+);
+const replacement = await replacementResponse.json();
+await expectStatus(
+   "old share invalidated",
+   `${api}/api/bookmark-shares/view`,
+   json({ token: share.token }),
+   404,
+);
+await expectStatus(
+   "revoke owner share",
+   `${api}/api/bookmark-shares`,
+   { method: "DELETE", headers: auth },
+   204,
+);
+await expectStatus(
+   "revoked share denied",
+   `${api}/api/bookmark-shares/view`,
+   json({ token: replacement.token }),
+   404,
+);
 await expectStatus(
    "owner bookmark remove",
    `${api}/api/restaurants/bookmarks/sync`,
@@ -174,7 +226,7 @@ await expectStatus(
 const emptyBookmarks = await expectStatus(
    "bookmark removal",
    `${api}/api/restaurants/bookmarks/${ownerId}`,
-   {},
+   { headers: auth },
    200,
 );
 assert.equal((await emptyBookmarks.json()).length, 0);

@@ -8,7 +8,11 @@ bytes). Actual object-byte export/checksum, isolated DB plus Storage restore,
 two-user Supabase Auth/ownership, and real scraper rerun/recovery: **BLOCKED**
 pending the approved source export, protected destination, and isolated target.
 See [the recovery rehearsal](storage-byte-recovery.md). The temporary four-table
-RLS exception through 2026-10-04 does not clear those gates.
+RLS exception through 2026-10-04 has expired and does not clear those gates.
+The October 6 live access review and replacement policies are in
+[Supabase access](supabase-access.md). Both reviewed migrations were applied
+with user approval at 8:16 PM PDT; read-only SQL/grant checks passed. Real-user
+Auth and Storage-byte acceptance remain blocked, independently of this change.
 
 Evidence identity: branch `chore/docker-local-pilot`, starting commit `411aa34de6782cffcf891a6764d3b309934c38a2`; final PR commit, image IDs, and remote CI status must be recorded after delivery. Local test mode uses `UMAMI_REVISION` set to the checked-out SHA, Compose project `umami-local`, a disposable in-memory fixture, and no production credentials. The predeclared acceptance deadlines were startup/recovery 60 seconds, HTTP 10 seconds, stop 10 seconds; browser viewports 1440×900 and 390×844. Commands below run from the repository root.
 
@@ -32,7 +36,7 @@ Repeatable commands: `npm run format:check`, `npm run lint`, `npm test`, `npm --
 
 Initial containment finding, before the allowlist/network changes: a menu one-shot attempted one GET to public Dine on Campus, received HTTP 422, and incorrectly exited 0 because the batch logged and swallowed the per-restaurant failure. No production Supabase credentials or URL were configured and no production Supabase writes occurred. The result was not accepted. A later exact-SHA smoke run overlapped with a legitimate scheduled fixture menu job, so a synthetic failure probe was initially skipped and returned 200; fixture probes now report overlap as 409 and the smoke retries within a bounded deadline. Fixture destination validation now occurs before Chromium launch, redirects and browser subrequests are constrained, the worker/fixture network is internal, and per-restaurant failures propagate to exit 1. This remains visible here so the safety correction is auditable.
 
-No production/DNS/storage change or cloud resource creation is part of this PR. The existing Azure deployment workflows are retained for approved merges to `main`; the Cypress integration workflow is manual and points only at future isolated test credentials.
+The original September 24 Docker pilot included no production/DNS/storage change or cloud resource creation. The separately approved October 6 RLS rollout above changes live permissions and adds the sharing table; it does not change application rows or Storage bytes or provision cloud resources. The retained Azure deployment workflows apply only to the original organization's repository, not the personal fork. The Cypress integration workflow is manual and points only at future isolated test credentials.
 
 ## API ownership follow-up, stacked on the Docker pilot
 

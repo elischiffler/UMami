@@ -13,7 +13,11 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
-import { MemoryRouter } from "react-router-dom";
+import {
+   MemoryRouter,
+   Routes,
+   Route,
+} from "react-router-dom";
 import UserPage from "../pages/User.jsx";
 import { uploadProfilePhoto } from "../lib/uploadPhoto";
 
@@ -275,6 +279,81 @@ beforeAll(() => {
 });
 
 describe("User Profile Page", () => {
+   test("another profile neither displays nor fetches private bookmarks", async () => {
+      const originalFetch = global.fetch;
+      const profileFetch = jest.fn(async (url) => ({
+         ok: true,
+         json: async () =>
+            url.includes("/api/users/other") &&
+            !url.endsWith("/follows")
+               ? { id: "other", name: "Other User" }
+               : [],
+      }));
+      global.fetch = profileFetch;
+      try {
+         rtlRender(
+            <MemoryRouter initialEntries={["/users/other"]}>
+               <Routes>
+                  <Route
+                     path="/users/:userId"
+                     element={
+                        <UserPage
+                           session={{
+                              user: { id: "owner" },
+                           }}
+                        />
+                     }
+                  />
+               </Routes>
+            </MemoryRouter>,
+         );
+         await screen.findByText("Other User");
+         expect(
+            document.getElementById("restaurants"),
+         ).toBeNull();
+         expect(
+            profileFetch.mock.calls.some(([url]) =>
+               url.includes("/bookmarks"),
+            ),
+         ).toBe(false);
+      } finally {
+         global.fetch = originalFetch;
+      }
+   });
+
+   test("the owner loads saved restaurants with a bearer token", async () => {
+      const originalFetch = global.fetch;
+      const profileFetch = jest.fn(async (url) => ({
+         ok: true,
+         json: async () =>
+            url.endsWith("/api/users/owner")
+               ? { id: "owner", name: "Owner" }
+               : [],
+      }));
+      global.fetch = profileFetch;
+      try {
+         render(
+            <UserPage
+               session={{ user: { id: "owner" } }}
+            />,
+         );
+         await waitFor(() =>
+            expect(profileFetch).toHaveBeenCalledWith(
+               expect.stringContaining(
+                  "/api/restaurants/bookmarks/owner",
+               ),
+               expect.objectContaining({
+                  headers: expect.objectContaining({
+                     Authorization: "Bearer fixture-token",
+                  }),
+               }),
+            ),
+         );
+      } finally {
+         global.fetch = originalFetch;
+      }
+   });
+
    // checks to see if user page will render
    test("renders the user page", () => {
       render(<UserPage user={testUser} />);

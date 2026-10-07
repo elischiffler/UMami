@@ -19,6 +19,7 @@ import Header from "./components/Header";
 import AccountSettings from "./pages/AccountSettings";
 import AuthCallback from "./pages/AuthCallback";
 import VerifyEmail from "./pages/VerifyEmail";
+import SharedBookmarks from "./pages/SharedBookmarks";
 
 function ProtectedRoute({ session, children }) {
    if (!session) {
@@ -108,6 +109,10 @@ function AppLayout() {
 
                <Route path="/signin" element={<SignIn />} />
                <Route path="/signup" element={<SignUp />} />
+               <Route
+                  path="/shared-bookmarks"
+                  element={<SharedBookmarks />}
+               />
                <Route
                   path="/auth/callback"
                   element={<AuthCallback />}
