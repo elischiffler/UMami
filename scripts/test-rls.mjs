@@ -9,7 +9,7 @@ const image =
 const read = (path) =>
    readFileSync(new URL(path, import.meta.url), "utf8");
 const migration = read(
-   "../supabase/migrations/20261007024259_harden_umami_client_access.sql",
+   "../supabase/migrations/20261007031657_harden_umami_client_access.sql",
 );
 
 function docker(args, input) {
@@ -75,7 +75,7 @@ try {
       migration,
       read("../tests/rls/access.sql"),
       read(
-         "../supabase/migrations/20261007024834_add_private_bookmark_shares.sql",
+         "../supabase/migrations/20261007031659_add_private_bookmark_shares.sql",
       ),
       read("../tests/rls/shares.sql"),
    ].join("\n");

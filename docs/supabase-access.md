@@ -1,7 +1,8 @@
 # Supabase access review and hardening
 
 Live metadata inspected on October 6, 2026 (America/Los_Angeles), project
-`yxuclucskxbqrgjhbzou` (UMami). This patch is **not applied to that project**.
+`yxuclucskxbqrgjhbzou` (UMami). Both migrations were **applied with user approval**
+on October 6 at 8:16 PM PDT. The findings below describe the pre-change state.
 The starting code is personal-fork main `0947333`.
 
 ## Confirmed findings
@@ -60,7 +61,7 @@ future retrieval. Do not add request-body logging for these routes.
 
 ## Migration and verification
 
-`supabase/migrations/20261007024259_harden_umami_client_access.sql` is an
+`supabase/migrations/20261007031657_harden_umami_client_access.sql` is an
 additive access-control migration for the existing eight-table schema. It
 replaces policies on those tables, revokes client table and column grants,
 restores only SELECT privileges, fixes function search paths, and restricts
@@ -69,7 +70,7 @@ not delete application rows or Storage bytes, change bucket publicity, or
 create cloud resources. Unexpected tables/views/functions require a fresh
 review before live application.
 
-`supabase/migrations/20261007024834_add_private_bookmark_shares.sql` adds a
+`supabase/migrations/20261007031659_add_private_bookmark_shares.sql` adds a
 service-only capability table. Apply it after the hardening migration, before
 releasing the share-link UI. The table deliberately has RLS enabled without
 client policies, with client grants revoked. Any advisor notice about that
@@ -92,7 +93,21 @@ Local verification: **PASS** for PostgreSQL access/counter/capability tests,
 build. Browser inspection at desktop and 390x844 confirmed that the read-only
 shared page fits without horizontal overflow and images load; fixture owner
 controls create and revoke links on desktop/mobile. These browser checks used
-only synthetic data and stubbed sharing responses. Remote CI is pending.
+only synthetic data and stubbed sharing responses. Remote CI passed build,
+RLS, frontend, container and browser checks on `86f4a154`.
+
+Live read-only verification after applying both migrations: **PASS** for RLS
+on all nine public tables, effective client table/column write and TRUNCATE
+denial, anonymous private-table denial, service-role access, owner SELECT
+policies, restrictive photo policy, and invoker trigger search paths. A SQL
+authenticated-role read with a synthetic unowned subject returned no private
+rows and could read public restaurants. No application rows or photo bytes
+were changed. Security advisors no longer report disabled RLS or mutable
+function paths; the share table's no-policy INFO is intentional, and leaked
+password protection remains disabled. This is live SQL/metadata evidence,
+not real-user JWT or Storage-byte acceptance. Migration filenames match the
+versions assigned by Supabase's migration history. Application deployment and
+post-release checks must be recorded separately.
 
 Production application requires approval of the exact migration and target.
 Deploy the corresponding API/frontend through the user-approved merge before
