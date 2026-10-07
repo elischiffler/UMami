@@ -89,7 +89,7 @@ Supabase emulator. These tests do not prove Auth JWT issuance, PostgREST
 behavior, Storage object-byte operations, or the live deployed API version.
 
 Local verification: **PASS** for PostgreSQL access/counter/capability tests,
-104 frontend tests, 310 backend tests, lint, formatting and the Vite production
+107 frontend tests, 310 backend tests, lint, formatting and the Vite production
 build. Browser inspection at desktop and 390x844 confirmed that the read-only
 shared page fits without horizontal overflow and images load; fixture owner
 controls create and revoke links on desktop/mobile. These browser checks used
@@ -109,6 +109,10 @@ not real-user JWT or Storage-byte acceptance. Migration filenames match the
 versions assigned by Supabase's migration history. Application deployment and
 post-release checks must be recorded separately.
 
+Anonymous live HTTPS Data API checks also passed: public content returned 200,
+all five private tables returned 401 with Postgres code 42501, and both photo
+bucket list endpoints returned empty lists. No private rows were downloaded.
+
 Production application requires approval of the exact migration and target.
 Deploy the corresponding API/frontend through the user-approved merge before
 or alongside the database change: SQL alone cannot make the old privileged
@@ -123,6 +127,13 @@ confirmed exposures. Take a protected metadata snapshot before applying.
 
 ## Separate follow-ups
 
+- The legacy Azure site's public bundle uses this Supabase project. Its API
+  still returned 200/empty list for an unauthenticated bookmark-route request
+  with a synthetic nonexistent user ID; no actual user's bookmarks were read.
+  Its exact backend project configuration is not verified. Personal-fork
+  deployments cannot update that organization's Azure app. Update or retire
+  that legacy API with explicit authority; this release alone cannot establish
+  privacy there. Do not delete a shared App Service plan during retirement.
 - The API uses one privileged client for public reads, user writes and worker
   operations. Separating a verified user's scoped client from the worker/admin
   client would add database enforcement behind API guards. This needs its own

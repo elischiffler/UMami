@@ -5,11 +5,11 @@ import "./SharedBookmarks.css";
 
 export default function SharedBookmarks() {
    const { hash } = useLocation();
-   const [result, setResult] = useState({
-      loading: true,
-      restaurants: [],
-      error: "",
-   });
+   const [result, setResult] = useState(null);
+   const currentResult =
+      result?.hash === hash
+         ? result
+         : { loading: true, restaurants: [], error: "" };
    useEffect(() => {
       const controller = new AbortController();
       // Fragments are omitted from HTTP requests and referrer headers.
@@ -30,6 +30,7 @@ export default function SharedBookmarks() {
             const restaurants = await response.json();
             if (!controller.signal.aborted)
                setResult({
+                  hash,
                   loading: false,
                   restaurants,
                   error: "",
@@ -38,6 +39,7 @@ export default function SharedBookmarks() {
          .catch((err) => {
             if (!controller.signal.aborted)
                setResult({
+                  hash,
                   loading: false,
                   restaurants: [],
                   error: err.message,
@@ -48,17 +50,19 @@ export default function SharedBookmarks() {
    return (
       <main className="shared-bookmarks">
          <h1>Shared Saved Restaurants</h1>
-         {result.loading && <p role="status">Loading...</p>}
-         {result.error && (
-            <p role="alert">{result.error}</p>
+         {currentResult.loading && (
+            <p role="status">Loading...</p>
          )}
-         {!result.loading &&
-            !result.error &&
-            result.restaurants.length === 0 && (
+         {currentResult.error && (
+            <p role="alert">{currentResult.error}</p>
+         )}
+         {!currentResult.loading &&
+            !currentResult.error &&
+            currentResult.restaurants.length === 0 && (
                <p>No saved restaurants.</p>
             )}
          <div className="shared-bookmark-list">
-            {result.restaurants.map((restaurant) => (
+            {currentResult.restaurants.map((restaurant) => (
                <article key={restaurant.id}>
                   {restaurant.image_urls?.[0] && (
                      <img

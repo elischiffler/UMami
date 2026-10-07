@@ -3,10 +3,14 @@ import {
    render,
    screen,
    waitFor,
+   act,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
-import { MemoryRouter } from "react-router-dom";
+import {
+   MemoryRouter,
+   useNavigate,
+} from "react-router-dom";
 import {
    jest,
    test,
@@ -91,6 +95,116 @@ test("a revoke failure leaves the active link visible", async () => {
       screen.getByRole("button", { name: "Revoke" }),
    ).toBeInTheDocument();
 });
+
+test("a failed sharing status can be retried without reloading", async () => {
+   const actor = userEvent.setup();
+   authenticatedFetch.mockResolvedValueOnce({ ok: false });
+   render(<BookmarkSharing ownerId="owner" />);
+   await screen.findByRole("alert");
+   expect(
+      screen.getByRole("button", {
+         name: "Create share link",
+      }),
+   ).toBeDisabled();
+   authenticatedFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ active: false }),
+   });
+   await actor.click(
+      screen.getByRole("button", {
+         name: "Retry sharing status",
+      }),
+   );
+   await screen.findByText("Private bookmarks");
+   expect(screen.queryByRole("alert")).toBeNull();
+   expect(
+      screen.getByRole("button", {
+         name: "Create share link",
+      }),
+   ).toBeEnabled();
+   expect(authenticatedFetch).toHaveBeenCalledTimes(2);
+});
+
+function ShareNavigation() {
+   const navigate = useNavigate();
+   return (
+      <button
+         onClick={() =>
+            navigate(`/shared-bookmarks#${"b".repeat(43)}`)
+         }
+      >
+         Another share
+      </button>
+   );
+}
+
+test.each(["success", "error"])(
+   "switching a share clears the previous %s while loading",
+   async (previous) => {
+      const originalFetch = global.fetch;
+      let resolveNext;
+      global.fetch = jest
+         .fn()
+         .mockResolvedValueOnce(
+            previous === "success"
+               ? {
+                    ok: true,
+                    json: async () => [
+                       {
+                          id: 1,
+                          name: "Previous restaurant",
+                       },
+                    ],
+                 }
+               : { ok: false, status: 404 },
+         )
+         .mockImplementationOnce(
+            () =>
+               new Promise((resolve) => {
+                  resolveNext = resolve;
+               }),
+         );
+      try {
+         render(
+            <MemoryRouter
+               initialEntries={[
+                  `/shared-bookmarks#${"a".repeat(43)}`,
+               ]}
+            >
+               <ShareNavigation />
+               <SharedBookmarks />
+            </MemoryRouter>,
+         );
+         if (previous === "success")
+            await screen.findByText("Previous restaurant");
+         else await screen.findByRole("alert");
+         await userEvent.click(
+            screen.getByRole("button", {
+               name: "Another share",
+            }),
+         );
+         expect(
+            screen.getByRole("status"),
+         ).toHaveTextContent("Loading");
+         expect(
+            screen.queryByText("Previous restaurant"),
+         ).toBeNull();
+         expect(screen.queryByRole("alert")).toBeNull();
+         await act(async () =>
+            resolveNext({
+               ok: true,
+               json: async () => [
+                  { id: 2, name: "Next restaurant" },
+               ],
+            }),
+         );
+         await screen.findByText("Next restaurant");
+         expect(screen.queryByRole("status")).toBeNull();
+      } finally {
+         global.fetch = originalFetch;
+      }
+   },
+);
 
 test("shared bookmarks resolve without auth, with the token only in the body", async () => {
    const originalFetch = global.fetch;

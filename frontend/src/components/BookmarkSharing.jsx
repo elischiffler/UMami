@@ -3,6 +3,7 @@ import {
    ShareNetwork,
    Copy,
    XCircle,
+   ArrowClockwise,
 } from "@phosphor-icons/react";
 import { authenticatedFetch } from "../lib/authenticatedFetch";
 import { API_BASE_URL } from "../lib/api";
@@ -14,6 +15,7 @@ export default function BookmarkSharing({ ownerId }) {
    const [pending, setPending] = useState(false);
    const [error, setError] = useState("");
    const [copied, setCopied] = useState(false);
+   const [loadAttempt, setLoadAttempt] = useState(0);
 
    useEffect(() => {
       if (!ownerId) return;
@@ -35,7 +37,7 @@ export default function BookmarkSharing({ ownerId }) {
       return () => {
          current = false;
       };
-   }, [ownerId]);
+   }, [ownerId, loadAttempt]);
 
    async function changeLink(revoke) {
       setPending(true);
@@ -87,6 +89,20 @@ export default function BookmarkSharing({ ownerId }) {
    return (
       <div className="bookmark-sharing">
          <div className="bookmark-sharing-actions">
+            {!status && error && (
+               <button
+                  aria-label="Retry sharing status"
+                  title="Retry sharing status"
+                  onClick={() => {
+                     setError("");
+                     setLoadAttempt(
+                        (attempt) => attempt + 1,
+                     );
+                  }}
+               >
+                  <ArrowClockwise size={18} />
+               </button>
+            )}
             <button
                disabled={pending || !status}
                onClick={() => changeLink(false)}
