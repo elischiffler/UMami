@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { setTimeout } from "node:timers/promises";
 
 const container = `umami-rls-${randomUUID()}`;
@@ -41,6 +42,8 @@ try {
       "/var/lib/postgresql/data",
       "--env",
       "POSTGRES_HOST_AUTH_METHOD=trust",
+      "--mount",
+      `type=bind,source=${fileURLToPath(new URL("../tests/rls/startup-delay.sql", import.meta.url))},target=/docker-entrypoint-initdb.d/10-startup-delay.sql,readonly`,
       image,
    ]);
    let ready = false;
@@ -51,6 +54,9 @@ try {
             "exec",
             container,
             "pg_isready",
+            // The image's temporary init server accepts only Unix sockets.
+            "-h",
+            "127.0.0.1",
             "-U",
             "postgres",
          ],
@@ -70,6 +76,7 @@ try {
          "Disposable PostgreSQL did not become ready",
       );
    const sql = [
+      "do $$ begin if inet_server_addr() is null then raise exception 'RLS tests must connect to the final TCP server'; end if; end $$;",
       read("../tests/rls/schema.sql"),
       migration,
       migration,
@@ -86,6 +93,8 @@ try {
          container,
          "psql",
          "-X",
+         "-h",
+         "127.0.0.1",
          "-U",
          "postgres",
          "-v",
