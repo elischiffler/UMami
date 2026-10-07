@@ -16,6 +16,7 @@ npm ci --prefix frontend
 npm ci --prefix backend
 npm run lint
 npm test
+npm run test:rls # Disposable PostgreSQL 17; requires Docker, no live credentials
 VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_ANON_KEY=public-test-key npm run build --prefix frontend
 ```
 

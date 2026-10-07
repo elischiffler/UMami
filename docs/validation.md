@@ -8,7 +8,9 @@ bytes). Actual object-byte export/checksum, isolated DB plus Storage restore,
 two-user Supabase Auth/ownership, and real scraper rerun/recovery: **BLOCKED**
 pending the approved source export, protected destination, and isolated target.
 See [the recovery rehearsal](storage-byte-recovery.md). The temporary four-table
-RLS exception through 2026-10-04 does not clear those gates.
+RLS exception through 2026-10-04 has expired and does not clear those gates.
+The October 6 live access review and proposed replacement policies are in
+[Supabase access](supabase-access.md); provider application remains pending.
 
 Evidence identity: branch `chore/docker-local-pilot`, starting commit `411aa34de6782cffcf891a6764d3b309934c38a2`; final PR commit, image IDs, and remote CI status must be recorded after delivery. Local test mode uses `UMAMI_REVISION` set to the checked-out SHA, Compose project `umami-local`, a disposable in-memory fixture, and no production credentials. The predeclared acceptance deadlines were startup/recovery 60 seconds, HTTP 10 seconds, stop 10 seconds; browser viewports 1440×900 and 390×844. Commands below run from the repository root.
 

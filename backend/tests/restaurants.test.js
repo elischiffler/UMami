@@ -576,9 +576,9 @@ describe("Restaurant Endpoints", () => {
          return { select: jest.fn() };
       });
 
-      const res = await request(app).get(
-         "/api/restaurants/bookmarks/user123",
-      );
+      const res = await request(app)
+         .get("/api/restaurants/bookmarks/user123")
+         .set("Authorization", "Bearer user123");
 
       expect(res.statusCode).toBe(200);
       expect(res.body.length).toBe(2);
@@ -597,11 +597,27 @@ describe("Restaurant Endpoints", () => {
          }),
       });
 
-      const res = await request(app).get(
-         "/api/restaurants/bookmarks/user1",
-      );
+      const res = await request(app)
+         .get("/api/restaurants/bookmarks/user1")
+         .set("Authorization", "Bearer user1");
 
       expect(res.statusCode).toBe(500);
+   });
+
+   it("denies anonymous bookmark-list reads before querying", async () => {
+      const res = await supertest(app).get(
+         "/api/restaurants/bookmarks/user123",
+      );
+      expect(res.statusCode).toBe(401);
+      expect(supabase.from).not.toHaveBeenCalled();
+   });
+
+   it("denies another user's bookmark-list reads before querying", async () => {
+      const res = await request(app)
+         .get("/api/restaurants/bookmarks/user123")
+         .set("Authorization", "Bearer other-user");
+      expect(res.statusCode).toBe(403);
+      expect(supabase.from).not.toHaveBeenCalled();
    });
 
    it("GET /api/restaurants/bookmarks requires authentication", async () => {

@@ -7,6 +7,7 @@ import restaurantsRouter from "./routes/restaurants.js";
 import notificationsRouter from "./routes/notifications.js";
 import { supabase } from "./config/supabaseClient.js";
 import uploadsRouter from "./routes/uploads.js";
+import bookmarkSharesRouter from "./routes/bookmarkShares.js";
 import { optionalAuth } from "./middleware/auth.js";
 import { operationalEvent } from "./operationalLog.js";
 
@@ -42,6 +43,7 @@ app.use("/api/users", usersRouter);
 app.use("/api/restaurants", restaurantsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/uploads", uploadsRouter);
+app.use("/api/bookmark-shares", bookmarkSharesRouter);
 
 // Health check for uptime monitoring
 app.get("/health", (req, res) => {

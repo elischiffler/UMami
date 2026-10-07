@@ -36,30 +36,51 @@ router.get("/", async (req, res) => {
 });
 
 // Get bookmarks for a specific user
-router.get("/bookmarks/:userId", async (req, res) => {
-   const { userId } = req.params;
-   try {
-      // Step 1: Fetch all bookmarked restaurant ids for a user
-      const { data: bookmarks } = await supabase
-         .from("bookmarks")
-         .select("restaurant_id")
-         .eq("user_id", userId);
+router.get(
+   "/bookmarks/:userId",
+   requireAuth,
+   async (req, res) => {
+      const { userId } = req.params;
+      if (!requireOwner(req, res, userId)) {
+         return;
+      }
+      try {
+         // Step 1: Fetch all bookmarked restaurant ids for a user
+         const { data: bookmarks, error: bookmarksError } =
+            await supabase
+               .from("bookmarks")
+               .select("restaurant_id")
+               .eq("user_id", userId);
 
-      const restaurantIds = bookmarks.map(
-         (b) => b.restaurant_id,
-      );
+         if (bookmarksError) {
+            throw bookmarksError;
+         }
 
-      // Step 2: Use those restaurant ids to fetch the restaurant object
-      const { data: restaurants } = await supabase
-         .from("restaurants")
-         .select("id,name,location,image_urls,avg_rating")
-         .in("id", restaurantIds);
+         const restaurantIds = bookmarks.map(
+            (b) => b.restaurant_id,
+         );
 
-      res.status(200).json(restaurants);
-   } catch (error) {
-      res.status(500).json({ error: error.message });
-   }
-});
+         // Step 2: Use those restaurant ids to fetch the restaurant object
+         const {
+            data: restaurants,
+            error: restaurantsError,
+         } = await supabase
+            .from("restaurants")
+            .select(
+               "id,name,location,image_urls,avg_rating",
+            )
+            .in("id", restaurantIds);
+
+         if (restaurantsError) {
+            throw restaurantsError;
+         }
+
+         res.status(200).json(restaurants);
+      } catch (error) {
+         res.status(500).json({ error: error.message });
+      }
+   },
+);
 
 // Get the signed-in user's bookmarks
 router.get("/bookmarks", requireAuth, async (req, res) => {

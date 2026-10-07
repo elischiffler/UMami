@@ -3,6 +3,7 @@ import ReviewCard from "../components/ReviewCard.jsx";
 import RestaurantCard from "../components/RestaurantCard.jsx";
 import FollowedUserCard from "../components/FollowUserCard.jsx";
 import ProfilePhotoPreviewModal from "../components/ProfilePhotoPreviewModal.jsx";
+import BookmarkSharing from "../components/BookmarkSharing.jsx";
 import {
    CaretLeft,
    CaretRight,
@@ -288,9 +289,11 @@ function User({
                sessionFetch(
                   `${API_BASE_URL}/api/reviews?user_id=${profileUser.id}`,
                ),
-               fetch(
-                  `${API_BASE_URL}/api/restaurants/bookmarks/${profileUser.id}`,
-               ),
+               isOwnProfile
+                  ? authenticatedFetch(
+                       `${API_BASE_URL}/api/restaurants/bookmarks/${profileUser.id}`,
+                    )
+                  : Promise.resolve(null),
                fetch(
                   `${API_BASE_URL}/api/users/${profileUser.id}/follows`,
                ),
@@ -337,7 +340,7 @@ function User({
                setReviews([]);
             }
 
-            if (bookmarksResponse.ok) {
+            if (bookmarksResponse?.ok) {
                const restaurantsData =
                   await bookmarksResponse.json();
 
@@ -851,16 +854,16 @@ function User({
                         : "Reviews"}
                   </a>
 
-                  <a
-                     href="#restaurants"
-                     onClick={(e) =>
-                        handleNavClick(e, "restaurants")
-                     }
-                  >
-                     {isOwnProfile
-                        ? "My Saved Restaurants"
-                        : "Saved Restaurants"}
-                  </a>
+                  {isOwnProfile && (
+                     <a
+                        href="#restaurants"
+                        onClick={(e) =>
+                           handleNavClick(e, "restaurants")
+                        }
+                     >
+                        My Saved Restaurants
+                     </a>
+                  )}
 
                   <a
                      href="#following"
@@ -955,108 +958,110 @@ function User({
                   </div>
                </div>
 
-               <div
-                  className="restaurants"
-                  id="restaurants"
-               >
-                  <div className="activity-header">
-                     <h2>
-                        {isOwnProfile
-                           ? "My Saved Restaurants"
-                           : `${user.name}'s Saved Restaurants`}
-                     </h2>
-                  </div>
-
-                  <div className="carousel-container">
-                     {canScroll.restaurants.left && (
-                        <button
-                           className="carousel-arrow left"
-                           onClick={() =>
-                              scrollContainer(
-                                 "restaurants",
-                                 "left",
-                              )
-                           }
-                        >
-                           <CaretLeft
-                              size={24}
-                              weight="bold"
-                           />
-                        </button>
-                     )}
-
-                     <div
-                        className="restaurant-list"
-                        id="restaurants-list"
-                        onScroll={() =>
-                           checkScroll("restaurants")
-                        }
-                     >
-                        {restaurants.length > 0 ? (
-                           restaurants.map(
-                              (restaurant, index) => (
-                                 <div
-                                    key={
-                                       restaurant.id ??
-                                       `${restaurant.name ?? "restaurant"}-${index}`
-                                    }
-                                    onClick={() =>
-                                       navigate(
-                                          `/restaurants/${restaurant.id}`,
-                                       )
-                                    }
-                                    style={{
-                                       cursor: "pointer",
-                                    }}
-                                 >
-                                    <RestaurantCard
-                                       restaurant={
-                                          restaurant
-                                       }
-                                       isBookmarked={bookmarkedIds.has(
-                                          restaurant.id,
-                                       )}
-                                       disabled={pendingBookmarkIds.has(
-                                          restaurant.id,
-                                       )}
-                                       onToggle={
-                                          isOwnProfile
-                                             ? () =>
-                                                  handleBookmarkToggle(
-                                                     restaurant.id,
-                                                  )
-                                             : undefined
-                                       }
-                                       className="compact"
-                                    />
-                                 </div>
-                              ),
-                           )
-                        ) : (
-                           <p className="no-content-message">
-                              No saved restaurants yet.
-                           </p>
-                        )}
+               {isOwnProfile && (
+                  <div
+                     className="restaurants"
+                     id="restaurants"
+                  >
+                     <div className="activity-header">
+                        <h2>My Saved Restaurants</h2>
                      </div>
 
-                     {canScroll.restaurants.right && (
-                        <button
-                           className="carousel-arrow right"
-                           onClick={() =>
-                              scrollContainer(
-                                 "restaurants",
-                                 "right",
-                              )
+                     <BookmarkSharing
+                        key={currentUserId}
+                        ownerId={currentUserId}
+                     />
+                     <div className="carousel-container">
+                        {canScroll.restaurants.left && (
+                           <button
+                              className="carousel-arrow left"
+                              onClick={() =>
+                                 scrollContainer(
+                                    "restaurants",
+                                    "left",
+                                 )
+                              }
+                           >
+                              <CaretLeft
+                                 size={24}
+                                 weight="bold"
+                              />
+                           </button>
+                        )}
+
+                        <div
+                           className="restaurant-list"
+                           id="restaurants-list"
+                           onScroll={() =>
+                              checkScroll("restaurants")
                            }
                         >
-                           <CaretRight
-                              size={24}
-                              weight="bold"
-                           />
-                        </button>
-                     )}
+                           {restaurants.length > 0 ? (
+                              restaurants.map(
+                                 (restaurant, index) => (
+                                    <div
+                                       key={
+                                          restaurant.id ??
+                                          `${restaurant.name ?? "restaurant"}-${index}`
+                                       }
+                                       onClick={() =>
+                                          navigate(
+                                             `/restaurants/${restaurant.id}`,
+                                          )
+                                       }
+                                       style={{
+                                          cursor: "pointer",
+                                       }}
+                                    >
+                                       <RestaurantCard
+                                          restaurant={
+                                             restaurant
+                                          }
+                                          isBookmarked={bookmarkedIds.has(
+                                             restaurant.id,
+                                          )}
+                                          disabled={pendingBookmarkIds.has(
+                                             restaurant.id,
+                                          )}
+                                          onToggle={
+                                             isOwnProfile
+                                                ? () =>
+                                                     handleBookmarkToggle(
+                                                        restaurant.id,
+                                                     )
+                                                : undefined
+                                          }
+                                          className="compact"
+                                       />
+                                    </div>
+                                 ),
+                              )
+                           ) : (
+                              <p className="no-content-message">
+                                 No saved restaurants yet.
+                              </p>
+                           )}
+                        </div>
+
+                        {canScroll.restaurants.right && (
+                           <button
+                              className="carousel-arrow right"
+                              onClick={() =>
+                                 scrollContainer(
+                                    "restaurants",
+                                    "right",
+                                 )
+                              }
+                           >
+                              <CaretRight
+                                 size={24}
+                                 weight="bold"
+                              />
+                           </button>
+                        )}
+                     </div>
                   </div>
-               </div>
+               )}
 
                <div className="following" id="following">
                   <div className="activity-header">
