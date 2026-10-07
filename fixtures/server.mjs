@@ -45,6 +45,7 @@ const tables = {
       },
    ],
    bookmarks: [],
+   bookmark_shares: [],
    reviews: [],
    review_helpful_votes: [],
    follows: [],
@@ -148,6 +149,11 @@ function matchingRows(rows, searchParams) {
          if (
             value.startsWith("eq.") &&
             String(row[key]) !== value.slice(3)
+         )
+            return false;
+         if (
+            value.startsWith("gt.") &&
+            !(row[key] > value.slice(3))
          )
             return false;
          if (value.startsWith("in.(")) {
