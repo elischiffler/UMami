@@ -2,6 +2,11 @@
 
 ## Pull requests
 
+`test:rls` waits for the final PostgreSQL server over container loopback TCP.
+A delayed initialization fixture and connection assertion reject premature
+readiness from the image's temporary Unix-socket-only initialization server.
+The container remains network-isolated, disposable, and without host ports.
+
 `CI Testing` installs from lockfiles, lints, runs the frontend and backend unit
 tests, and builds the frontend. `Browser smoke` starts only Vite and runs
 `cypress/e2e/smoke.cy.js`. Its Supabase URL and key are inert public placeholders;
